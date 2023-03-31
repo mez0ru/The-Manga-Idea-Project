@@ -1,0 +1,11 @@
+{
+    "ACCESS_TOKEN_SECRET": "Random 64 hex bytes",
+    "REFRESH_TOKEN_SECRET": "Random 64 hex bytes",
+    "regex_name": "\\w{3,}",
+    "regex_email": "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$",
+    "regex_password": ".{4,}",
+    "JWT_ISSUER": "The Manga Idea Project",
+    "path_to_7z.dll": "Path to 7z.dll file i.e. (C:\\Program Files\\7-Zip-Zstandard\\7z.dll)",
+    "multithreaded": false,
+    "chapters_cache_size": 20
+}

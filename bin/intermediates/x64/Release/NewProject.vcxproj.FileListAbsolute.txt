@@ -1,0 +1,1 @@
+C:\Users\lazyhorse\Documents\Develop\c++\crow_test\bin\intermediates\x64\Release\NewProject.vcxproj.CopyComplete
