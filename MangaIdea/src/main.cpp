@@ -1,15 +1,14 @@
-//#define CROW_ENABLE_COMPRESSION
 #define _HAS_AUTO_PTR_ETC 1
 #define BIT7Z_AUTO_FORMAT
 #define BIT7Z_REGEX_MATCHING
 
-#include "crow.h"
+#include <uwebsockets/App.h>
+#include <fstream>
 #include "sqlite_modern_cpp.h"
 #include "bit7z/bitarchivereader.hpp"
 #include "bit7z/bitexception.hpp"
 #include "bit7z/biterror.hpp"
 #include <filesystem>
-#include "crow/middlewares/cookie_parser.h"
 #include "Magick++/Functions.h"
 #include "Magick++/Image.h"
 #include "boost/json/parser.hpp"
@@ -26,6 +25,8 @@
 #include "exiv2/exiv2.hpp"
 #include "cache.hpp"
 #include "fifo_cache_policy.hpp"
+#include "MimeTypes.h"
+#include <charconv>
 
 std::string refresh_token;
 std::string access_token;
@@ -43,6 +44,7 @@ boost::json::value read_json(std::ifstream& is, std::error_code& ec)
 {
     boost::json::stream_parser p;
     std::string line;
+
     while (std::getline(is, line))
     {
         p.write(line, ec);
@@ -59,44 +61,44 @@ const enum ROLES {
     ADMIN = 0,
 };
 
-struct JWTVerify
-{
-    struct context
-    {};
-
-    void before_handle(crow::request& req, crow::response& res, context&)
-    {
-        if (req.url == "/protected") {
-            check(req, res);
-        }
-    }
-
-    inline void check(crow::request& req, crow::response& res) {
-        const auto authHeader = req.get_header_value("authorization");
-        if (authHeader.empty()) {
-            res.code = 403;
-            res.end();
-        }
-
-
-
-        const auto token = authHeader.substr(authHeader.find_first_of(' ') + 1);
-        auto jwt_verify = jwt::verify<jwt::traits::boost_json>().allow_algorithm(jwt::algorithm::hs256(access_token)).with_issuer("Manga Idea");
-        auto decoded = jwt::decode<jwt::traits::boost_json>(token);
-        std::error_code verify_error;
-        jwt_verify.verify(decoded, verify_error);
-
-        if (verify_error.value()) {
-            std::cerr << "Error verifing access token: " << token << ". Error: " << verify_error.message() << ". Error code: " << verify_error.value();
-
-            res.code = 403;
-            res.end();
-        }
-    }
-
-    void after_handle(crow::request&, crow::response&, context&)
-    {}
-};
+//struct JWTVerify
+//{
+//    struct context
+//    {};
+//
+//    void before_handle(crow::request& req, crow::response& res, context&)
+//    {
+//        if (req.url == "/protected") {
+//            check(req, res);
+//        }
+//    }
+//
+//    inline void check(crow::request& req, crow::response& res) {
+//        const auto authHeader = req.get_header_value("authorization");
+//        if (authHeader.empty()) {
+//            res.code = 403;
+//            res.end();
+//        }
+//
+//
+//
+//        const auto token = authHeader.substr(authHeader.find_first_of(' ') + 1);
+//        auto jwt_verify = jwt::verify<jwt::traits::boost_json>().allow_algorithm(jwt::algorithm::hs256(access_token)).with_issuer("Manga Idea");
+//        auto decoded = jwt::decode<jwt::traits::boost_json>(token);
+//        std::error_code verify_error;
+//        jwt_verify.verify(decoded, verify_error);
+//
+//        if (verify_error.value()) {
+//            std::cerr << "Error verifing access token: " << token << ". Error: " << verify_error.message() << ". Error code: " << verify_error.value();
+//
+//            res.code = 403;
+//            res.end();
+//        }
+//    }
+//
+//    void after_handle(crow::request&, crow::response&, context&)
+//    {}
+//};
 
 inline Magick::Geometry resizeWithAspectRatioFit(const size_t srcWidth, const size_t srcHeight, const size_t maxWidth, const size_t maxHeight) {
     auto ratio = std::fmin(static_cast<float>(maxWidth) / srcWidth, static_cast<float>(maxHeight) / srcHeight);
@@ -119,7 +121,6 @@ inline std::vector<uint8_t>& GenerateCoverFromArchiveImage(const bit7z::BitArchi
     return out_vector;
 }
 
-// Either use multithread, or change the fucking algorithm. It takes too long
 inline int AnalyzeImages(const bit7z::BitArchiveReader& arc, sqlite::database& db, long long chapter_id) {
     int cover = -1;
     bit7z::buffer_t* buff = new bit7z::buffer_t();
@@ -307,11 +308,6 @@ int main(int argc, char** argv)
     using namespace std::string_literals;
     Bit7zLibrary lib { path_to_7z };
 
-    //BitArchiveReader reader{ lib, "H:\\Last G Backup\\Manga\\Analyzed\\Genshiken new\\Genshiken Omnibus v01 (2015).cbz", BitFormat::Auto };
-
-    // REST API Initialization
-    crow::App<crow::CookieParser> app;
-
     // Sqlite Initialization
 #ifdef _DEBUG
     //sqlite::database db(":memory:");
@@ -372,29 +368,25 @@ int main(int argc, char** argv)
                     UPDATE chapter SET updated_at=CURRENT_TIMESTAMP WHERE id=NEW.id;
                 END;)";
     
-    fifo_cache_t<int, std::string> chapters_cache(chapters_cache_size);
+    //fifo_cache_t<int, std::shared_ptr<bit7z::BitArchiveReader>> chapters_cache(chapters_cache_size);
+    fifo_cache_t<unsigned long long, bit7z::BitArchiveReader*> chapters_cache(chapters_cache_size);
 
     Magick::InitializeMagick(*argv);
     
-    CROW_ROUTE(app, "/")
-        ([&](const crow::request&, crow::response& res) {
-        res.write("Hello World!");
-        res.end();
-        });
+    
+    //CROW_ROUTE(app, "/api/series/thumbnail/<uint>")
+    //    ([&](const crow::request&, crow::response& res, unsigned int id) {
 
-    CROW_ROUTE(app, "/api/series/thumbnail/<uint>")
-        ([&](const crow::request&, crow::response& res, unsigned int id) {
+    //    db << "select cover from chapter inner join series on series.id = chapter.series_id where series.id = ? and chapter.id = 1;"
+    //        << id
+    //        >> [&res](std::vector<uint8_t> blob) {
+    //        res.write(std::string((char*)blob.data(), blob.size()));
+    //        res.end();
+    //    };
+    //        });
 
-        db << "select cover from chapter inner join series on series.id = chapter.series_id where series.id = ? and chapter.id = 1;"
-            << id
-            >> [&res](std::vector<uint8_t> blob) {
-            res.write(std::string((char*)blob.data(), blob.size()));
-            res.end();
-        };
-            });
-
-    CROW_ROUTE(app, "/api/series/info")
-        ([&](const crow::request&, crow::response& res) {
+    uWS::App()
+        .get("/api/series/info", [&db](uWS::HttpResponse<false>* res, uWS::HttpRequest*) {
         boost::json::array reply{};
 
         db << "select id, name from series;"
@@ -404,432 +396,398 @@ int main(int argc, char** argv)
             item["name"] = name;
             reply.push_back(item);
         };
-
-        res.write(boost::json::serialize(reply));
-        res.add_header("Content-Type", "application/json");
-        res.end();
-            });
-
-    CROW_ROUTE(app, "/api/series/info/<uint>")
-        ([&](const crow::request&, crow::response& res, unsigned int id) {
-        boost::json::array reply{};
-
-        db << "select id, file_name from chapter where series_id = ?;"
-            << id
-            >> [&reply](long long id, std::string file_name) {
-            boost::json::object item;
-            item["id"] = id;
-            item["name"] = file_name.erase(file_name.find_last_of('.'));
-            reply.push_back(item);
-        };
-
-        res.write(boost::json::serialize(reply));
-        res.add_header("Content-Type", "application/json");
-        res.end();
-            });
-
-    CROW_ROUTE(app, "/api/chapter/<uint>/page/<uint>") // work here
-        ([&](const crow::request& req, crow::response& res, unsigned int cid, unsigned int pid) {
-        //boost::json::object reply{};
-        const auto chapter = chapters_cache.TryGet(cid);
-        bit7z::buffer_t buff;
-        if (chapter.second) // success
-        {
-            const bit7z::BitArchiveReader arc(lib, chapter.first->second);
-            arc.extract(buff, pid);
-            res.write(std::string((char*)buff.data(), buff.size()));
-            res.end();
-        }
-        else {
-             std::string chapter_fullpath;
-            db << "select folder_path, file_name from series inner join chapter on chapter.series_id = series.id where chapter.id = ?;"
-                << cid
-                >> [&chapter_fullpath](std::string f_path, std::string f_name) {
-                std::filesystem::path series_path = std::move(f_path);
-                std::filesystem::path file_name = std::move(f_name);
-                chapter_fullpath = (series_path / file_name).generic_string();
+        res->writeHeader("Content-Type", "application/json");
+        res->end(boost::json::serialize(reply));
+            })
+        .get("/api/series/info/:id", [&db](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
+                boost::json::array reply{};
+                unsigned long long id;
+                const auto string_id = req->getParameter(0);
+                auto id_result = std::from_chars(string_id.data(), string_id.data() + string_id.size(), id);
+                if (id_result.ec == std::errc::invalid_argument) {
+                    res->writeStatus("203");
+                    res->end("Arguments are invalid");
+                }
+                else {
+                    db << "select id, file_name from chapter where series_id = ?;"
+                        << id
+                >> [&reply](long long id, std::string file_name) {
+                        boost::json::object item;
+                        item["id"] = id;
+                        item["name"] = file_name.erase(file_name.find_last_of('.'));
+                        reply.push_back(item);
                     };
 
-            const bit7z::BitArchiveReader arc (lib, chapter_fullpath);
-            arc.extract(buff, pid);
-            
-            chapters_cache.Put(cid, chapter_fullpath);
-            res.write(std::string((char*)buff.data(), buff.size()));
-            res.end();
-        }
-            });
+                    res->writeHeader("Content-Type", "application/json");
+                    res->end(boost::json::serialize(reply));
+                }
+            })
+                .get("/api/chapter/:chapter_id/page/:page_id", [&db, &lib, &chapters_cache](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
 
-    CROW_ROUTE(app, "/api/chapter/info/<uint>")
-        ([&](const crow::request& req, crow::response& res, unsigned int id) {
-        //boost::json::object reply{};
-        boost::json::array arr{};
+                unsigned long long chapter_id;
+                unsigned long long page_id;
 
-        try {
-            //db << "select i, width, height from page where chapter_id = ?;"
-            //    << id
-            //    >> [&arr](int i, int width, int height) {
-            //    boost::json::object row{};
-            //    row["i"] = i;
-            //    row["w"] = width;
-            //    row["h"] = height;
-            //    arr.push_back(row);
-            //        };
+                const auto string_chapter_id = req->getParameter(0);
+                const auto string_page_id = req->getParameter(1);
 
-              db << "select i from page where chapter_id = ?;"
-                << id
-                >> [&arr](int i) {
-                  arr.push_back(i);
-                    };
-            
-            if (arr.empty())
-            {
-                res.write("Chapter doesn't exist.");
-                res.code = 500;
-                res.end();
-                return;
-            }
+                auto id_result1 = std::from_chars(string_chapter_id.data(), string_chapter_id.data() + string_chapter_id.size(), chapter_id);
+                auto id_result2 = std::from_chars(string_page_id.data(), string_page_id.data() + string_page_id.size(), page_id);
 
-            res.write(boost::json::serialize(arr));
-            res.add_header("Content-Type", "application/json");
-            res.end();
-        }
-        catch (sqlite::exceptions::no_rows& e) {
-            fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
-            res.write("Chapter doesn't exist.");
-            res.code = 500;
-            res.end();
-            return;
-        }
-            });
+                if (id_result1.ec == std::errc::invalid_argument || id_result2.ec == std::errc::invalid_argument) {
+                    res->writeStatus("203");
+                    res->end("Arguments are invalid");
+                }
+                else {
+                    // Search the cache and try to grab the value if it exists
+                    const auto chapter = chapters_cache.TryGet(chapter_id);
 
-    CROW_ROUTE(app, "/api/update_chapters").methods("POST"_method)
-        ([&](const crow::request& req, crow::response& res) {
-        // Parse Json from body
-        boost::json::value json_body = boost::json::parse(req.body);
+                    //std::string mimetype;
+                    bit7z::buffer_t buff;
+                    std::string_view mimetype;
 
-        // info
-        const auto id = boost::json::value_to<long long>(json_body.at("id"));
-        std::string folder_path;
+                    if (chapter.second) // success
+                    {
+                        // Extract the image file and send it to the client
+                        chapter.first->second->extract(buff, page_id);
+                        mimetype = MimeTypes::getType(chapter.first->second->items().at(page_id).extension().c_str());
+                    }
+                    else {
 
-        try {
-            db << "select folder_path from series where id = ? limit 1;"
-                << id
-                >> folder_path;
+                        // Get the file name from the database
+                        std::string chapter_fullpath;
+                        db << "select folder_path, file_name from series inner join chapter on chapter.series_id = series.id where chapter.id = ?;"
+                            << chapter_id
+                            >> [&chapter_fullpath](std::string f_path, std::string f_name) {
+                            std::filesystem::path series_path = f_path;
+                            std::filesystem::path file_name = f_name;
+                            chapter_fullpath = (series_path / file_name).generic_string();
+                        };
 
-            db << "begin;"; // begin transaction
-            if (AddNewChapters(db, lib, folder_path, id)) {
-                res.write("DONE.");
-                res.end();
-                return;
-            }
-            else {
-                res.write("Error");
-                res.code = 500;
-                res.end();
-                return;
-            }
-        }
-        catch (sqlite::exceptions::no_rows& e) {
-            fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
-            res.write("Series doesn't exist.");
-            res.end();
-            return;
-        }
-            });
+                        // Create a new point to the archive
+                        bit7z::BitArchiveReader* arc = new bit7z::BitArchiveReader(lib, chapter_fullpath);
 
-    CROW_ROUTE(app, "/api/add_series").methods("POST"_method)
-        ([&](const crow::request& req, crow::response& res) {
-        // Parse Json from body
-        boost::json::value json_body = boost::json::parse(req.body);
+                        arc->extract(buff, page_id);
+                        mimetype = MimeTypes::getType(arc->items().at(page_id).extension().c_str());
 
-        // info
-        const auto name = boost::json::value_to<std::string>(json_body.at("name"));
-        const auto folder_path = boost::json::value_to<std::string>(json_body.at("folder_path"));
-        long long seriesInserted = 0;
+                        // Save the pointer in the cache
+                        chapters_cache.Put(chapter_id, arc);
+                    }
 
-        db << "select exists(select 1 from series where folder_path = ? limit 1);"
-            << folder_path
-            >> seriesInserted;
+                    res->writeHeader("Content-Type", mimetype);
+                    res->end({ (char*)buff.data(), buff.size() });
+                }
+                    })
 
-        if (seriesInserted) {
-            res.write("folder path is already added.");
-            res.end();
-            return;
-        }
+        .listen(3000, [](auto* listen_socket) {
+                if (listen_socket) {
+                    std::cout << "Listening on port " << 3000 << std::endl;
+                }
+                })
+        .run();
 
-        //fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
-        db << "begin;"; // begin transaction
+    //CROW_ROUTE(app, "/api/chapter/info/<uint>")
+    //    ([&](const crow::request& req, crow::response& res, unsigned int id) {
+    //    //boost::json::object reply{};
+    //    boost::json::array arr{};
 
-        db << "insert into series (name, folder_path) values (?, ?);"
-            << name
-            << folder_path;
-        seriesInserted = db.last_insert_rowid(); // get series id
-
-
-        if (AddNewChapters(db, lib, folder_path, seriesInserted)) {
-            res.write("whatever!");
-            res.end();
-        }
-        else {
-            res.write("error!");
-            res.code = 500;
-            res.end();
-        }
-
-        
-            });
-
-    //CROW_ROUTE(app, "/archive_test<int>")
-    //    ([&](const crow::request&, crow::response& res, int seek) {
-    //        
-    //    buffer_t bb;
     //    try {
-    //        reader.extract(bb, seek);
-    //    }
-    //    catch (bit7z::BitException e) {
-    //        if (e.code() == bit7z::BitError::InvalidIndex)
+    //          db << "select i from page where chapter_id = ?;"
+    //            << id
+    //            >> [&arr](int i) {
+    //              arr.push_back(i);
+    //                };
+    //        
+    //        if (arr.empty())
     //        {
-    //            res.write("NOT FOUND 404");
-    //            res.code = 404;
-    //            res.end();
-    //        }
-    //        else {
-    //            res.write("Internal Server Error");
+    //            res.write("Chapter doesn't exist.");
     //            res.code = 500;
     //            res.end();
+    //            return;
     //        }
+
+    //        res.write(boost::json::serialize(arr));
+    //        res.add_header("Content-Type", "application/json");
+    //        res.end();
+    //    }
+    //    catch (sqlite::exceptions::no_rows& e) {
+    //        fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
+    //        res.write("Chapter doesn't exist.");
+    //        res.code = 500;
+    //        res.end();
     //        return;
     //    }
+    //        });
+
+    //CROW_ROUTE(app, "/api/update_chapters").methods("POST"_method)
+    //    ([&](const crow::request& req, crow::response& res) {
+    //    // Parse Json from body
+    //    boost::json::value json_body = boost::json::parse(req.body);
+
+    //    // info
+    //    const auto id = boost::json::value_to<long long>(json_body.at("id"));
+    //    std::string folder_path;
+
+    //    try {
+    //        db << "select folder_path from series where id = ? limit 1;"
+    //            << id
+    //            >> folder_path;
+
+    //        db << "begin;"; // begin transaction
+    //        if (AddNewChapters(db, lib, folder_path, id)) {
+    //            res.write("DONE.");
+    //            res.end();
+    //            return;
+    //        }
+    //        else {
+    //            res.write("Error");
+    //            res.code = 500;
+    //            res.end();
+    //            return;
+    //        }
+    //    }
+    //    catch (sqlite::exceptions::no_rows& e) {
+    //        fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
+    //        res.write("Series doesn't exist.");
+    //        res.end();
+    //        return;
+    //    }
+    //        });
+
+    //CROW_ROUTE(app, "/api/add_series").methods("POST"_method)
+    //    ([&](const crow::request& req, crow::response& res) {
+    //    // Parse Json from body
+    //    boost::json::value json_body = boost::json::parse(req.body);
+
+    //    // info
+    //    const auto name = boost::json::value_to<std::string>(json_body.at("name"));
+    //    const auto folder_path = boost::json::value_to<std::string>(json_body.at("folder_path"));
+    //    long long seriesInserted = 0;
+
+    //    db << "select exists(select 1 from series where folder_path = ? limit 1);"
+    //        << folder_path
+    //        >> seriesInserted;
+
+    //    if (seriesInserted) {
+    //        res.write("folder path is already added.");
+    //        res.end();
+    //        return;
+    //    }
+
+    //    //fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
+    //    db << "begin;"; // begin transaction
+
+    //    db << "insert into series (name, folder_path) values (?, ?);"
+    //        << name
+    //        << folder_path;
+    //    seriesInserted = db.last_insert_rowid(); // get series id
+
+
+    //    if (AddNewChapters(db, lib, folder_path, seriesInserted)) {
+    //        res.write("whatever!");
+    //        res.end();
+    //    }
+    //    else {
+    //        res.write("error!");
+    //        res.code = 500;
+    //        res.end();
+    //    }
+
     //    
-    //    //Magick::Blob bl(bb.data(), bb.size());
-    //    //Magick::Image image(bl);
-    //    
-    //    res.write(std::string((char*)bb.data(), bb.size()));
-    //    
+    //        });
+
+    //CROW_ROUTE(app, "/api/register").methods("POST"_method)
+    //    ([&](const crow::request& req, crow::response& res) {
+
+    //    // Parse Json from body
+    //    boost::json::value json_body = boost::json::parse(req.body);
+
+    //    // credentials
+    //    const auto name = boost::json::value_to<std::string>(json_body.at("name"));
+    //    const auto email = boost::json::value_to<std::string>(json_body.at("email"));
+    //    const auto password = boost::json::value_to<std::string>(json_body.at("password"));
+    //    boost::json::object reply{};
+
+    //    // checks
+    //    std::smatch match;
+    //    bool refuse = false;
+    //    if (!std::regex_search(name.begin(), name.end(), match, NAME_REGEX)) {
+    //        fmt::print("Regex for Name did not match: {}\n", name);
+    //        reply["error"] = fmt::format("Your name '{}' did not work, stop being edgy and just create an actual name bro.", name);
+    //        refuse = true;
+    //    }
+    //    if (!std::regex_search(email.begin(), email.end(), match, EMAIL_REGEX)) {
+    //        fmt::print("Regex for email did not match: {}\n", email);
+    //        reply["error"] = fmt::format("Your email '{}', ugh, is it hard to use an actual email? just use yours and lets end it quickly.", email);
+    //        refuse = true;
+    //    }
+    //    if (!std::regex_search(password.begin(), password.end(), match, PASSWORD_REGEX)) {
+    //        fmt::print("Regex for password did not match: {}\n", password);
+    //        reply["error"] = fmt::format("Your password '{}', wow, hackers seem to be enjoying the free loading rides at your place.", password);
+    //        refuse = true;
+    //    }
+
+    //    if (refuse) {
+    //        res.write(boost::json::serialize(reply));
+    //        res.add_header("Content-Type", "application/json");
+    //        res.code = 403;
+    //        res.end();
+    //        return;
+    //    }
+
+    //    auto reg_refresh_token = jwt::create<jwt::traits::boost_json>()
+    //        .set_issuer("Manga Idea")
+    //        .set_type("JWT")
+    //        .set_issued_at(std::chrono::system_clock::now())
+    //        .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours{ 168 })
+    //        .set_payload_claim("email", boost::json::value(email))
+    //        .sign(jwt::algorithm::hs256{ refresh_token });
+
+    //    // HMAC SHA512 hashed password
+    //    const auto secret = CalcHmacSHA512(refresh_token, password);
+
+    //    try {
+    //         db << "insert into user (name, email, password, role, refresh_token) values (?, ?, ?, ?, ?);"
+    //            << name
+    //            << email
+    //            << secret
+    //            << ROLES::ADMIN
+    //            << reg_refresh_token;
+
+    //         reply["success"] = fmt::format("User '{}' is logged in!", name);
+
+    //         res.write(boost::json::serialize(reply));
+    //         res.add_header("Content-Type", "application/json");
+
+    //         auto& ctx = app.get_context<crow::CookieParser>(req);
+    //         ctx.set_cookie("jwt", reg_refresh_token).max_age(7 * 24 * 60 * 60 * 1000).httponly();
+    //    }
+    //    catch (const sqlite::exceptions::constraint_unique&) {
+    //        res.write("Error registering, account already exists.");
+    //        res.code = 500;
+    //    }
+    //    catch (const sqlite::sqlite_exception& e) {
+    //        fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
+    //        res.write(fmt::format("Error registering, SQLite error: {}, code: {}.", e.what(), e.get_code()));
+    //        res.code = 500;
+    //    }
     //    res.end();
-    //});
+    //        });
 
-    CROW_ROUTE(app, "/api/register").methods("POST"_method)
-        ([&](const crow::request& req, crow::response& res) {
+    //CROW_ROUTE(app, "/api/login").methods("POST"_method)
+    //    ([&](const crow::request& req, crow::response& res) {
 
-        // Parse Json from body
-        boost::json::value json_body = boost::json::parse(req.body);
+    //    // Parse Json from body
+    //    boost::json::value json_body = boost::json::parse(req.body);
 
-        // credentials
-        const auto name = boost::json::value_to<std::string>(json_body.at("name"));
-        const auto email = boost::json::value_to<std::string>(json_body.at("email"));
-        const auto password = boost::json::value_to<std::string>(json_body.at("password"));
-        boost::json::object reply{};
+    //    // credentials
+    //    const auto email = boost::json::value_to<std::string>(json_body.at("email"));
+    //    const auto password = boost::json::value_to<std::string>(json_body.at("password"));
 
-        // checks
-        std::smatch match;
-        bool refuse = false;
-        if (!std::regex_search(name.begin(), name.end(), match, NAME_REGEX)) {
-            fmt::print("Regex for Name did not match: {}\n", name);
-            reply["error"] = fmt::format("Your name '{}' did not work, stop being edgy and just create an actual name bro.", name);
-            refuse = true;
-        }
-        if (!std::regex_search(email.begin(), email.end(), match, EMAIL_REGEX)) {
-            fmt::print("Regex for email did not match: {}\n", email);
-            reply["error"] = fmt::format("Your email '{}', ugh, is it hard to use an actual email? just use yours and lets end it quickly.", email);
-            refuse = true;
-        }
-        if (!std::regex_search(password.begin(), password.end(), match, PASSWORD_REGEX)) {
-            fmt::print("Regex for password did not match: {}\n", password);
-            reply["error"] = fmt::format("Your password '{}', wow, hackers seem to be enjoying the free loading rides at your place.", password);
-            refuse = true;
-        }
+    //    // HMAC SHA512 hashed password
+    //    const auto secret = CalcHmacSHA512(refresh_token, password);
+    //    try {
+    //        // Check credentials
+    //        int exists;
+    //        db << "select count(id) from user where email = ? and password = ?;"
+    //            << email
+    //            << secret
+    //            >> exists;
 
-        if (refuse) {
-            res.write(boost::json::serialize(reply));
-            res.add_header("Content-Type", "application/json");
-            res.code = 403;
-            res.end();
-            return;
-        }
+    //        // check if user is not matched
+    //        if (!exists) {
+    //            res.code = 401;
+    //            res.end();
+    //            return;
+    //        }
 
-        auto reg_refresh_token = jwt::create<jwt::traits::boost_json>()
-            .set_issuer("Manga Idea")
-            .set_type("JWT")
-            .set_issued_at(std::chrono::system_clock::now())
-            .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours{ 168 })
-            .set_payload_claim("email", boost::json::value(email))
-            .sign(jwt::algorithm::hs256{ refresh_token });
+    //        // Generate a new refresh token
+    //        auto reg_refresh_token = jwt::create<jwt::traits::boost_json>()
+    //            .set_issuer("Manga Idea")
+    //            .set_type("JWT")
+    //            .set_issued_at(std::chrono::system_clock::now())
+    //            .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours{ 168 })
+    //            .set_payload_claim("email", boost::json::value(email))
+    //            .sign(jwt::algorithm::hs256{ refresh_token });
 
-        // HMAC SHA512 hashed password
-        const auto secret = CalcHmacSHA512(refresh_token, password);
+    //        // update refresh token in the db
+    //        db << "update user set refresh_token = ? where email = ?;"
+    //            << reg_refresh_token
+    //            << email;
 
-        try {
-             db << "insert into user (name, email, password, role, refresh_token) values (?, ?, ?, ?, ?);"
-                << name
-                << email
-                << secret
-                << ROLES::ADMIN
-                << reg_refresh_token;
+    //        // update jwt cookie
+    //        auto& ctx = app.get_context<crow::CookieParser>(req);
+    //        ctx.set_cookie("jwt", reg_refresh_token).max_age(7 * 24 * 60 * 60 * 1000).httponly();
+    //    }
+    //    catch (const sqlite::sqlite_exception& e) {
+    //        fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
+    //        res.code = 401;
+    //        res.end();
+    //        return;
+    //    }
 
-             reply["success"] = fmt::format("User '{}' is logged in!", name);
+    //    res.end();
+    //        });
 
-             res.write(boost::json::serialize(reply));
-             res.add_header("Content-Type", "application/json");
+    //CROW_ROUTE(app, "/api/refreshtoken")
+    //    ([&](const crow::request& req, crow::response& res) {
+    //    auto& ctx = app.get_context<crow::CookieParser>(req);
+    //    auto cookie_jwt = ctx.get_cookie("jwt");
 
-             auto& ctx = app.get_context<crow::CookieParser>(req);
-             ctx.set_cookie("jwt", reg_refresh_token).max_age(7 * 24 * 60 * 60 * 1000).httponly();
-        }
-        catch (const sqlite::exceptions::constraint_unique&) {
-            res.write("Error registering, account already exists.");
-            res.code = 500;
-        }
-        catch (const sqlite::sqlite_exception& e) {
-            fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
-            res.write(fmt::format("Error registering, SQLite error: {}, code: {}.", e.what(), e.get_code()));
-            res.code = 500;
-        }
-        res.end();
-            });
+    //    if (cookie_jwt.empty())
+    //    {
+    //        res.code = 401;
+    //        res.end();
+    //    }
+    //    else {
+    //        try {
+    //            auto jwt_verify = jwt::verify<jwt::traits::boost_json>().allow_algorithm(jwt::algorithm::hs256(refresh_token)).with_issuer("Manga Idea");
+    //            auto decoded = jwt::decode<jwt::traits::boost_json>(cookie_jwt);
+    //            std::error_code verify_error;
+    //            jwt_verify.verify(decoded, verify_error);
 
-    CROW_ROUTE(app, "/api/login").methods("POST"_method)
-        ([&](const crow::request& req, crow::response& res) {
+    //            if (verify_error.value()) {
+    //                res.code = 401;
+    //                res.end();
+    //                return;
+    //            }
 
-        // Parse Json from body
-        boost::json::value json_body = boost::json::parse(req.body);
+    //            std::string email;
+    //            db << "select email from user where refresh_token = ? LIMIT 1;"
+    //                << cookie_jwt >> email;
+    //            auto dec_email = decoded.get_payload_claim("email").as_string();
+    //            if (email.empty() && email != dec_email) {
+    //                res.code = 401;
+    //                res.end();
+    //                return;
+    //            }
 
-        // credentials
-        const auto email = boost::json::value_to<std::string>(json_body.at("email"));
-        const auto password = boost::json::value_to<std::string>(json_body.at("password"));
+    //            auto reg_access_token = jwt::create<jwt::traits::boost_json>()
+    //                .set_issuer("Manga Idea")
+    //                .set_type("JWT")
+    //                .set_issued_at(std::chrono::system_clock::now())
+    //                .set_expires_at(std::chrono::system_clock::now() + std::chrono::seconds{ 36000 })
+    //                .set_payload_claim("email", boost::json::value(email))
+    //                .sign(jwt::algorithm::hs256{ access_token });
 
-        // HMAC SHA512 hashed password
-        const auto secret = CalcHmacSHA512(refresh_token, password);
-        try {
-            // Check credentials
-            int exists;
-            db << "select count(id) from user where email = ? and password = ?;"
-                << email
-                << secret
-                >> exists;
+    //            boost::json::object reply{};
+    //            reply["access_token"] = reg_access_token;
 
-            // check if user is not matched
-            if (!exists) {
-                res.code = 401;
-                res.end();
-                return;
-            }
+    //            res.write(boost::json::serialize(reply));
+    //            res.add_header("Content-Type", "application/json");
+    //        }
+    //        catch (const sqlite::sqlite_exception& e) {
+    //            fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
+    //            res.code = 401;
+    //            res.end();
+    //            return;
+    //        }
+    //        res.code = 200;
+    //        res.end();
+    //    }
+    //        
 
-            // Generate a new refresh token
-            auto reg_refresh_token = jwt::create<jwt::traits::boost_json>()
-                .set_issuer("Manga Idea")
-                .set_type("JWT")
-                .set_issued_at(std::chrono::system_clock::now())
-                .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours{ 168 })
-                .set_payload_claim("email", boost::json::value(email))
-                .sign(jwt::algorithm::hs256{ refresh_token });
-
-            // update refresh token in the db
-            db << "update user set refresh_token = ? where email = ?;"
-                << reg_refresh_token
-                << email;
-
-            // update jwt cookie
-            auto& ctx = app.get_context<crow::CookieParser>(req);
-            ctx.set_cookie("jwt", reg_refresh_token).max_age(7 * 24 * 60 * 60 * 1000).httponly();
-        }
-        catch (const sqlite::sqlite_exception& e) {
-            fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
-            res.code = 401;
-            res.end();
-            return;
-        }
-
-        res.end();
-            });
-
-    CROW_ROUTE(app, "/api/refreshtoken")
-        ([&](const crow::request& req, crow::response& res) {
-        auto& ctx = app.get_context<crow::CookieParser>(req);
-        auto cookie_jwt = ctx.get_cookie("jwt");
-
-        if (cookie_jwt.empty())
-        {
-            res.code = 401;
-            res.end();
-        }
-        else {
-            try {
-                auto jwt_verify = jwt::verify<jwt::traits::boost_json>().allow_algorithm(jwt::algorithm::hs256(refresh_token)).with_issuer("Manga Idea");
-                auto decoded = jwt::decode<jwt::traits::boost_json>(cookie_jwt);
-                std::error_code verify_error;
-                jwt_verify.verify(decoded, verify_error);
-
-                if (verify_error.value()) {
-                    res.code = 401;
-                    res.end();
-                    return;
-                }
-
-                std::string email;
-                db << "select email from user where refresh_token = ? LIMIT 1;"
-                    << cookie_jwt >> email;
-                auto dec_email = decoded.get_payload_claim("email").as_string();
-                if (email.empty() && email != dec_email) {
-                    res.code = 401;
-                    res.end();
-                    return;
-                }
-
-                auto reg_access_token = jwt::create<jwt::traits::boost_json>()
-                    .set_issuer("Manga Idea")
-                    .set_type("JWT")
-                    .set_issued_at(std::chrono::system_clock::now())
-                    .set_expires_at(std::chrono::system_clock::now() + std::chrono::seconds{ 36000 })
-                    .set_payload_claim("email", boost::json::value(email))
-                    .sign(jwt::algorithm::hs256{ access_token });
-
-                boost::json::object reply{};
-                reply["access_token"] = reg_access_token;
-
-                res.write(boost::json::serialize(reply));
-                res.add_header("Content-Type", "application/json");
-            }
-            catch (const sqlite::sqlite_exception& e) {
-                fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
-                res.code = 401;
-                res.end();
-                return;
-            }
-            res.code = 200;
-            res.end();
-        }
-            
-
-            });
-
-    //CROW_ROUTE(app, "/hello_compressed")
-    //    ([]() {
-    //    crow::json::wvalue obj = { { "pi", 3.141 } };
-    //    return obj;
-    //});
-
-    if (multithreaded)
-    app.port(5000)
-        //.use_compression(crow::compression::algorithm::GZIP)
-        //.use_compression(crow::compression::algorithm::ZLIB)
-#ifdef _DEBUG
-        .loglevel(crow::LogLevel::Debug)
-#else
-        .loglevel(crow::LogLevel::Info)
-#endif // _DEBUG
-        .multithreaded()
-        .run();
-    else
-        app.port(5000)
-        //.use_compression(crow::compression::algorithm::GZIP)
-        //.use_compression(crow::compression::algorithm::ZLIB)
-#ifdef _DEBUG
-        .loglevel(crow::LogLevel::Debug)
-#else
-        .loglevel(crow::LogLevel::Info)
-#endif // _DEBUG
-        
-        .run();
+    //        });
+    
 }
 
 std::string convert_image(const bit7z::buffer_t const &bf, const std::string const &magick) {

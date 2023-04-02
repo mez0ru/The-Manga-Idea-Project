@@ -127,13 +127,13 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>C:\Users\lazyhorse\Downloads\caches-master\include;C:\Users\lazyhorse\Documents\Develop\c++\The Manga Idea Project\MangaIdea\deps\bit7z\include;%(AdditionalIncludeDirectories);C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\include;C:\Users\lazyhorse\source\repos\Crow\out\build\x64-Debug\vcpkg_installed\x64-windows\include;C:\Users\lazyhorse\source\repos\Crow\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\lazyhorse\Downloads\caches-master\include;C:\Users\lazyhorse\source\repos\bit7z\include;%(AdditionalIncludeDirectories);C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>bit7z64_d.lib;zlib.lib;libssl.lib;libcrypto.lib;%(AdditionalDependencies);CORE_RL_Magick++_.lib;CORE_RL_MagickCore_.lib;CORE_RL_MagickWand_.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\Users\lazyhorse\Documents\Develop\c++\The Manga Idea Project\MangaIdea\deps\bit7z\lib;C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\lib;C:\Users\lazyhorse\source\repos\Crow\out\build\x64-Debug\vcpkg_installed\x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>bit7z64_d.lib;%(AdditionalDependencies);CORE_RL_Magick++_.lib;CORE_RL_MagickCore_.lib;CORE_RL_MagickWand_.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\lazyhorse\source\repos\bit7z\lib\x64;C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -145,19 +145,23 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>C:\Users\lazyhorse\Documents\Develop\c++\The Manga Idea Project\MangaIdea\deps\bit7z\include;%(AdditionalIncludeDirectories);C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\include;C:\Users\lazyhorse\source\repos\Crow\out\build\x64-Debug\vcpkg_installed\x64-windows\include;C:\Users\lazyhorse\source\repos\Crow\include;C:\Users\lazyhorse\Downloads\caches-master\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\lazyhorse\source\repos\bit7z\include;%(AdditionalIncludeDirectories);C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\include;C:\Users\lazyhorse\Downloads\caches-master\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\lazyhorse\Documents\Develop\c++\The Manga Idea Project\MangaIdea\deps\bit7z\lib;C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\lib;C:\Users\lazyhorse\source\repos\Crow\out\build\x64-Release\vcpkg_installed\x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>bit7z64.lib;libcrypto.lib;libssl.lib;zlib.lib;%(AdditionalDependencies);CORE_RL_Magick++_.lib;CORE_RL_MagickCore_.lib;CORE_RL_MagickWand_.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\lazyhorse\source\repos\bit7z\lib\x64;C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>bit7z64.lib;%(AdditionalDependencies);CORE_RL_Magick++_.lib;CORE_RL_MagickCore_.lib;CORE_RL_MagickWand_.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\MimeTypes.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\MimeTypes.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
