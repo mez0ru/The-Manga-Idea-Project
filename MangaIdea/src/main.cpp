@@ -26,6 +26,7 @@
 #include "cache.hpp"
 #include "fifo_cache_policy.hpp"
 #include "MimeTypes.h"
+#include "openssl/rand.h"
 #include <charconv>
 
 std::string refresh_token;
@@ -251,6 +252,21 @@ const std::string CalcHmacSHA512(const std::string_view& decodedKey, const std::
     return ss.str();
 }
 
+const std::string Random64Hex()
+{
+    std::array<unsigned char, EVP_MAX_MD_SIZE> hex;
+    
+    RAND_bytes(hex.data(), hex.size());
+
+    std::stringstream ss;
+    for (int i = 0; i < EVP_MAX_MD_SIZE; i++)
+    {
+        ss << std::hex << std::setw(2) << std::setfill('0') << (int)hex[i];
+    }
+
+    return ss.str();
+}
+
 int main(int argc, char** argv)
 {
     std::error_code json_ec;
@@ -276,7 +292,6 @@ int main(int argc, char** argv)
             std::cin.get();
             return 1;
         }
-
         access_token = boost::json::value_to<std::string>(settings_values.at("ACCESS_TOKEN_SECRET"));
         refresh_token = boost::json::value_to<std::string>(settings_values.at("REFRESH_TOKEN_SECRET"));
 
@@ -318,7 +333,7 @@ int main(int argc, char** argv)
 
     db << R"(create table if not exists user (
         id integer primary key autoincrement not null,
-        name text not null,
+        name text,
         email text unique not null,
         password text not null,
         role integer not null,
@@ -369,7 +384,7 @@ int main(int argc, char** argv)
                 END;)";
     
     //fifo_cache_t<int, std::shared_ptr<bit7z::BitArchiveReader>> chapters_cache(chapters_cache_size);
-    fifo_cache_t<unsigned long long, bit7z::BitArchiveReader*> chapters_cache(chapters_cache_size);
+    fifo_cache_t<unsigned long long, BitArchiveReader*> chapters_cache(chapters_cache_size);
 
     Magick::InitializeMagick(*argv);
     
@@ -405,8 +420,8 @@ int main(int argc, char** argv)
                 const auto string_id = req->getParameter(0);
                 auto id_result = std::from_chars(string_id.data(), string_id.data() + string_id.size(), id);
                 if (id_result.ec == std::errc::invalid_argument) {
-                    res->writeStatus("203");
-                    res->end("Arguments are invalid");
+                    res->writeStatus("400");
+                    res->end("BAD REQUEST. Arguments are invalid.");
                 }
                 else {
                     db << "select id, file_name from chapter where series_id = ?;"
@@ -422,7 +437,7 @@ int main(int argc, char** argv)
                     res->end(boost::json::serialize(reply));
                 }
             })
-                .get("/api/chapter/:chapter_id/page/:page_id", [&db, &lib, &chapters_cache](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
+        .get("/api/chapter/:chapter_id/page/:page_id", [&db, &lib, &chapters_cache](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
 
                 unsigned long long chapter_id;
                 unsigned long long page_id;
@@ -434,8 +449,8 @@ int main(int argc, char** argv)
                 auto id_result2 = std::from_chars(string_page_id.data(), string_page_id.data() + string_page_id.size(), page_id);
 
                 if (id_result1.ec == std::errc::invalid_argument || id_result2.ec == std::errc::invalid_argument) {
-                    res->writeStatus("203");
-                    res->end("Arguments are invalid");
+                    res->writeStatus("400");
+                    res->end("BAD REQUEST. Arguments are invalid.");
                 }
                 else {
                     // Search the cache and try to grab the value if it exists
@@ -464,7 +479,7 @@ int main(int argc, char** argv)
                         };
 
                         // Create a new point to the archive
-                        bit7z::BitArchiveReader* arc = new bit7z::BitArchiveReader(lib, chapter_fullpath);
+                        BitArchiveReader* arc = new BitArchiveReader(lib, chapter_fullpath);
 
                         arc->extract(buff, page_id);
                         mimetype = MimeTypes::getType(arc->items().at(page_id).extension().c_str());
@@ -476,318 +491,309 @@ int main(int argc, char** argv)
                     res->writeHeader("Content-Type", mimetype);
                     res->end({ (char*)buff.data(), buff.size() });
                 }
-                    })
+        })
+        .get("/api/chapter/info/:id", [&db](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
+                        boost::json::array arr{};
+                        unsigned long long id;
+                        const auto string_id = req->getParameter(0);
+                        auto id_result = std::from_chars(string_id.data(), string_id.data() + string_id.size(), id);
+                        if (id_result.ec == std::errc::invalid_argument) {
+                            res->writeStatus("400");
+                            res->end("BAD REQUEST. Arguments are invalid.");
+                        }
+                        else {
+                            db << "select i from page where chapter_id = ?;"
+                                << id
+                                >> [&arr](int i) {
+                                arr.push_back(i);
+                            };
 
+                            res->writeHeader("Content-Type", "application/json");
+                            res->end(boost::json::serialize(arr));
+                        }
+        })
+        .get("/api/update/series/:id", [&db, &lib](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
+            unsigned long long id;
+            const auto string_id = req->getParameter(0);
+            auto id_result = std::from_chars(string_id.data(), string_id.data() + string_id.size(), id);
+            if (id_result.ec == std::errc::invalid_argument) {
+                res->writeStatus("400");
+                res->end("BAD REQUEST. Arguments are invalid.");
+            }
+            else {
+                try {
+                    std::string folder_path;
+                    db << "select folder_path from series where id = ? limit 1;"
+                        << id
+                        >> folder_path;
+                    db << "begin;"; // begin transaction
+                    if (AddNewChapters(db, lib, folder_path, id)) {
+                        res->end("DONE.");
+                    }
+                    else {
+                        res->writeStatus("400");
+                        res->end("Error");
+                    }
+                }
+                catch (sqlite::exceptions::no_rows& e) {
+                    fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
+                    res->end("Series doesn't exist.");
+                }
+            }
+        })
+        .post("/api/add_series", [&db, &lib](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
+            std::string buffer;
+            /* Move it to storage of lambda */
+            res->onData([res, &db, &lib, buffer = std::move(buffer)](std::string_view data, bool last) mutable {
+                /* Mutate the captured data */
+                buffer.append(data.data(), data.length());
+
+                if (last) {
+                    /* Use the data */
+                    // Parse Json from body
+                    boost::json::value json_body = boost::json::parse(buffer);
+                    // info
+                    const auto name = boost::json::value_to<std::string>(json_body.at("name"));
+                    const auto folder_path = boost::json::value_to<std::string>(json_body.at("folder_path"));
+                    long long seriesInserted = 0;
+                    db << "select exists(select 1 from series where folder_path = ? limit 1);"
+                        << folder_path
+                        >> seriesInserted;
+                    if (seriesInserted) {
+                        res->end("folder path is already added.");
+                        return;
+                    }
+
+                    db << "begin;"; // begin transaction
+                    db << "insert into series (name, folder_path) values (?, ?);"
+                        << name
+                        << folder_path;
+                    seriesInserted = db.last_insert_rowid(); // get series id
+
+                    if (AddNewChapters(db, lib, folder_path, seriesInserted)) {
+                        res->end("whatever!");
+                    }
+                    else {
+                        res->writeStatus("500");
+                        res->end("error!");
+                    }
+                }
+                });
+            res->onAborted([res]() {
+                res->end("Bad Request I guess?");
+                });
+            })
+        .post("/api/register", [&db](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
+            std::string buffer;
+            /* Move it to storage of lambda */
+            res->onData([res, &db, buffer = std::move(buffer)](std::string_view data, bool last) mutable {
+                /* Mutate the captured data */
+                buffer.append(data.data(), data.length());
+
+                if (last) {
+                    // Parse Json from body
+                    boost::json::value json_body = boost::json::parse(buffer);
+
+                    // credentials
+                    //const auto name = boost::json::value_to<std::string>(json_body.at("name"));
+                    const auto email = boost::json::value_to<std::string>(json_body.at("email"));
+                    const auto password = boost::json::value_to<std::string>(json_body.at("password"));
+                    boost::json::object reply{};
+
+                    // checks
+                    std::smatch match;
+                    bool refuse = false;
+                    //if (!std::regex_search(name.begin(), name.end(), match, NAME_REGEX)) {
+                    //    fmt::print("Regex for Name did not match: {}\n", name);
+                    //    reply["error"] = fmt::format("Your name '{}' did not work, stop being edgy and just create an actual name bro.", name);
+                    //    refuse = true;
+                    //}
+
+                    if (!std::regex_search(email.begin(), email.end(), match, EMAIL_REGEX)) {
+                        fmt::print("Regex for email did not match: {}\n", email);
+                        reply["error"] = fmt::format("Your email '{}', ugh, is it hard to use an actual email? just use yours and lets end it quickly.", email);
+                        refuse = true;
+                    }
+
+                    if (!std::regex_search(password.begin(), password.end(), match, PASSWORD_REGEX)) {
+                        fmt::print("Regex for password did not match: {}\n", password);
+                        reply["error"] = fmt::format("Your password '{}', wow, hackers seem to be enjoying the free loading rides at your place.", password);
+                        refuse = true;
+                    }
+
+                    if (refuse) {
+                        res->writeHeader("Content-Type", "application/json");
+                        res->writeStatus("403");
+                        res->end(boost::json::serialize(reply));
+                        return;
+                    }
+
+                    auto reg_refresh_token = jwt::create<jwt::traits::boost_json>()
+                        .set_issuer(issuer)
+                        .set_type("JWT")
+                        .set_issued_at(std::chrono::system_clock::now())
+                        .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours{ 168 })
+                        .set_payload_claim("email", boost::json::value(email))
+                        .sign(jwt::algorithm::hs256{ refresh_token });
+
+                    // HMAC SHA512 hashed password
+                    const auto secret = CalcHmacSHA512(refresh_token, password);
+
+                    try {
+                            //db << "insert into user (name, email, password, role, refresh_token) values (?, ?, ?, ?, ?);"
+                            //   << name
+                            //   << email
+                            //   << secret
+                            //   << ROLES::ADMIN
+                            //   << reg_refresh_token;
+                            db << "insert into user (email, password, role, refresh_token) values (?, ?, ?, ?);"
+                                << email
+                                << secret
+                                << ROLES::ADMIN
+                                << reg_refresh_token;
+                            reply["success"] = fmt::format("User '{}' is logged in!", email);
+                            res->writeHeader("Content-Type", "application/json");
+
+                            // create or update jwt cookie
+                            res->writeHeader("Set-Cookie", fmt::format("jwt={}; Max-Age={}; HttpOnly", reg_refresh_token, 7 * 24 * 60 * 60 * 1000));
+
+                            res->end(boost::json::serialize(reply));
+                    }
+                    catch (const sqlite::exceptions::constraint_unique&) {
+                        res->end("Error registering, account already exists.");
+                        res->writeStatus("500");
+                    }
+                    catch (const sqlite::sqlite_exception& e) {
+                        fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
+                        res->end("Internal Server Error");
+                        res->writeStatus("500");
+                    }
+                }
+                });
+            res->onAborted([res]() {
+                res->end("Bad Request I guess?");
+                });
+            })
+        .post("/api/login", [&db](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
+            std::string buffer;
+            /* Move it to storage of lambda */
+            res->onData([res, &db, buffer = std::move(buffer)](std::string_view data, bool last) mutable {
+                /* Mutate the captured data */
+                buffer.append(data.data(), data.length());
+
+                if (last) {
+                    // Parse Json from body
+                    boost::json::value json_body = boost::json::parse(buffer);
+
+                    // credentials
+                    const auto email = boost::json::value_to<std::string>(json_body.at("email"));
+                    const auto password = boost::json::value_to<std::string>(json_body.at("password"));
+
+                    // HMAC SHA512 hashed password
+                    const auto secret = CalcHmacSHA512(refresh_token, password);
+
+                    try {
+                        // Check credentials
+                        int exists;
+                        db << "select count(id) from user where email = ? and password = ?;"
+                            << email
+                            << secret
+                            >> exists;
+
+                        // check if user is not matched
+                        if (!exists) {
+                            res->writeStatus("401");
+                            res->end();
+                            return;
+                        }
+
+                        // Generate a new refresh token
+                        auto reg_refresh_token = jwt::create<jwt::traits::boost_json>()
+                            .set_issuer(issuer)
+                            .set_type("JWT")
+                            .set_issued_at(std::chrono::system_clock::now())
+                            .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours{ 168 })
+                            .set_payload_claim("email", boost::json::value(email))
+                            .sign(jwt::algorithm::hs256{ refresh_token });
+
+                        // update refresh token in the db
+                        db << "update user set refresh_token = ? where email = ?;"
+                            << reg_refresh_token
+                            << email;
+
+                        // create or update jwt cookie
+                        res->writeHeader("Set-Cookie", fmt::format("jwt={}; Max-Age={}; HttpOnly", reg_refresh_token, 7 * 24 * 60 * 60 * 1000));
+                    }
+                    catch (const sqlite::sqlite_exception& e) {
+                        fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
+                        res->writeStatus("401");
+                    }
+                    res->end();
+                }
+                });
+            res->onAborted([res]() {
+                res->end("Bad Request I guess?");
+                });
+            })
+        .get("/api/refresh_token", [&db](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
+            std::string cookie{ req->getHeader("cookie") };
+                if (cookie.empty())
+                {
+                    res->writeStatus("401");
+                    res->end();
+                }
+                else {
+                    int cookie_offset = cookie.find("jwt=");
+                    std::string cookie_jwt = cookie.substr(cookie_offset + 4, cookie.find(";", cookie_offset) - (cookie_offset + 4));
+                    try {
+                        auto jwt_verify = jwt::verify<jwt::traits::boost_json>().allow_algorithm(jwt::algorithm::hs256(refresh_token)).with_issuer("Manga Idea");
+                        auto decoded = jwt::decode<jwt::traits::boost_json>(cookie_jwt);
+                        std::error_code verify_error;
+                        jwt_verify.verify(decoded, verify_error);
+                        if (verify_error.value()) {
+                            res->writeStatus("401");
+                            res->end();
+                            return;
+                        }
+                        std::string email;
+                        db << "select email from user where refresh_token = ? LIMIT 1;"
+                            << cookie_jwt >> email;
+                        auto dec_email = decoded.get_payload_claim("email").as_string();
+                        if (email.empty() && email != dec_email) {
+                            res->writeStatus("401");
+                            res->end();
+                            return;
+                        }
+                        auto reg_access_token = jwt::create<jwt::traits::boost_json>()
+                            .set_issuer(issuer)
+                            .set_type("JWT")
+                            .set_issued_at(std::chrono::system_clock::now())
+                            .set_expires_at(std::chrono::system_clock::now() + std::chrono::seconds{ 36000 })
+                            .set_payload_claim("email", boost::json::value(email))
+                            .sign(jwt::algorithm::hs256{ access_token });
+                        boost::json::object reply{};
+                        reply["access_token"] = reg_access_token;
+                        res->writeHeader("Content-Type", "application/json");
+                        res->end(boost::json::serialize(reply));
+                    }
+                    catch (const sqlite::sqlite_exception& e) {
+                        fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
+                        res->writeStatus("401");
+                        res->end();
+                    }
+                    catch (const std::exception& e) {
+                        fmt::print(stderr, "Exception thrown: ", e.what());
+                        res->writeStatus("401");
+                        res->end();
+                    }
+                }
+            })
         .listen(3000, [](auto* listen_socket) {
                 if (listen_socket) {
                     std::cout << "Listening on port " << 3000 << std::endl;
                 }
                 })
         .run();
-
-    //CROW_ROUTE(app, "/api/chapter/info/<uint>")
-    //    ([&](const crow::request& req, crow::response& res, unsigned int id) {
-    //    //boost::json::object reply{};
-    //    boost::json::array arr{};
-
-    //    try {
-    //          db << "select i from page where chapter_id = ?;"
-    //            << id
-    //            >> [&arr](int i) {
-    //              arr.push_back(i);
-    //                };
-    //        
-    //        if (arr.empty())
-    //        {
-    //            res.write("Chapter doesn't exist.");
-    //            res.code = 500;
-    //            res.end();
-    //            return;
-    //        }
-
-    //        res.write(boost::json::serialize(arr));
-    //        res.add_header("Content-Type", "application/json");
-    //        res.end();
-    //    }
-    //    catch (sqlite::exceptions::no_rows& e) {
-    //        fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
-    //        res.write("Chapter doesn't exist.");
-    //        res.code = 500;
-    //        res.end();
-    //        return;
-    //    }
-    //        });
-
-    //CROW_ROUTE(app, "/api/update_chapters").methods("POST"_method)
-    //    ([&](const crow::request& req, crow::response& res) {
-    //    // Parse Json from body
-    //    boost::json::value json_body = boost::json::parse(req.body);
-
-    //    // info
-    //    const auto id = boost::json::value_to<long long>(json_body.at("id"));
-    //    std::string folder_path;
-
-    //    try {
-    //        db << "select folder_path from series where id = ? limit 1;"
-    //            << id
-    //            >> folder_path;
-
-    //        db << "begin;"; // begin transaction
-    //        if (AddNewChapters(db, lib, folder_path, id)) {
-    //            res.write("DONE.");
-    //            res.end();
-    //            return;
-    //        }
-    //        else {
-    //            res.write("Error");
-    //            res.code = 500;
-    //            res.end();
-    //            return;
-    //        }
-    //    }
-    //    catch (sqlite::exceptions::no_rows& e) {
-    //        fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
-    //        res.write("Series doesn't exist.");
-    //        res.end();
-    //        return;
-    //    }
-    //        });
-
-    //CROW_ROUTE(app, "/api/add_series").methods("POST"_method)
-    //    ([&](const crow::request& req, crow::response& res) {
-    //    // Parse Json from body
-    //    boost::json::value json_body = boost::json::parse(req.body);
-
-    //    // info
-    //    const auto name = boost::json::value_to<std::string>(json_body.at("name"));
-    //    const auto folder_path = boost::json::value_to<std::string>(json_body.at("folder_path"));
-    //    long long seriesInserted = 0;
-
-    //    db << "select exists(select 1 from series where folder_path = ? limit 1);"
-    //        << folder_path
-    //        >> seriesInserted;
-
-    //    if (seriesInserted) {
-    //        res.write("folder path is already added.");
-    //        res.end();
-    //        return;
-    //    }
-
-    //    //fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
-    //    db << "begin;"; // begin transaction
-
-    //    db << "insert into series (name, folder_path) values (?, ?);"
-    //        << name
-    //        << folder_path;
-    //    seriesInserted = db.last_insert_rowid(); // get series id
-
-
-    //    if (AddNewChapters(db, lib, folder_path, seriesInserted)) {
-    //        res.write("whatever!");
-    //        res.end();
-    //    }
-    //    else {
-    //        res.write("error!");
-    //        res.code = 500;
-    //        res.end();
-    //    }
-
-    //    
-    //        });
-
-    //CROW_ROUTE(app, "/api/register").methods("POST"_method)
-    //    ([&](const crow::request& req, crow::response& res) {
-
-    //    // Parse Json from body
-    //    boost::json::value json_body = boost::json::parse(req.body);
-
-    //    // credentials
-    //    const auto name = boost::json::value_to<std::string>(json_body.at("name"));
-    //    const auto email = boost::json::value_to<std::string>(json_body.at("email"));
-    //    const auto password = boost::json::value_to<std::string>(json_body.at("password"));
-    //    boost::json::object reply{};
-
-    //    // checks
-    //    std::smatch match;
-    //    bool refuse = false;
-    //    if (!std::regex_search(name.begin(), name.end(), match, NAME_REGEX)) {
-    //        fmt::print("Regex for Name did not match: {}\n", name);
-    //        reply["error"] = fmt::format("Your name '{}' did not work, stop being edgy and just create an actual name bro.", name);
-    //        refuse = true;
-    //    }
-    //    if (!std::regex_search(email.begin(), email.end(), match, EMAIL_REGEX)) {
-    //        fmt::print("Regex for email did not match: {}\n", email);
-    //        reply["error"] = fmt::format("Your email '{}', ugh, is it hard to use an actual email? just use yours and lets end it quickly.", email);
-    //        refuse = true;
-    //    }
-    //    if (!std::regex_search(password.begin(), password.end(), match, PASSWORD_REGEX)) {
-    //        fmt::print("Regex for password did not match: {}\n", password);
-    //        reply["error"] = fmt::format("Your password '{}', wow, hackers seem to be enjoying the free loading rides at your place.", password);
-    //        refuse = true;
-    //    }
-
-    //    if (refuse) {
-    //        res.write(boost::json::serialize(reply));
-    //        res.add_header("Content-Type", "application/json");
-    //        res.code = 403;
-    //        res.end();
-    //        return;
-    //    }
-
-    //    auto reg_refresh_token = jwt::create<jwt::traits::boost_json>()
-    //        .set_issuer("Manga Idea")
-    //        .set_type("JWT")
-    //        .set_issued_at(std::chrono::system_clock::now())
-    //        .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours{ 168 })
-    //        .set_payload_claim("email", boost::json::value(email))
-    //        .sign(jwt::algorithm::hs256{ refresh_token });
-
-    //    // HMAC SHA512 hashed password
-    //    const auto secret = CalcHmacSHA512(refresh_token, password);
-
-    //    try {
-    //         db << "insert into user (name, email, password, role, refresh_token) values (?, ?, ?, ?, ?);"
-    //            << name
-    //            << email
-    //            << secret
-    //            << ROLES::ADMIN
-    //            << reg_refresh_token;
-
-    //         reply["success"] = fmt::format("User '{}' is logged in!", name);
-
-    //         res.write(boost::json::serialize(reply));
-    //         res.add_header("Content-Type", "application/json");
-
-    //         auto& ctx = app.get_context<crow::CookieParser>(req);
-    //         ctx.set_cookie("jwt", reg_refresh_token).max_age(7 * 24 * 60 * 60 * 1000).httponly();
-    //    }
-    //    catch (const sqlite::exceptions::constraint_unique&) {
-    //        res.write("Error registering, account already exists.");
-    //        res.code = 500;
-    //    }
-    //    catch (const sqlite::sqlite_exception& e) {
-    //        fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
-    //        res.write(fmt::format("Error registering, SQLite error: {}, code: {}.", e.what(), e.get_code()));
-    //        res.code = 500;
-    //    }
-    //    res.end();
-    //        });
-
-    //CROW_ROUTE(app, "/api/login").methods("POST"_method)
-    //    ([&](const crow::request& req, crow::response& res) {
-
-    //    // Parse Json from body
-    //    boost::json::value json_body = boost::json::parse(req.body);
-
-    //    // credentials
-    //    const auto email = boost::json::value_to<std::string>(json_body.at("email"));
-    //    const auto password = boost::json::value_to<std::string>(json_body.at("password"));
-
-    //    // HMAC SHA512 hashed password
-    //    const auto secret = CalcHmacSHA512(refresh_token, password);
-    //    try {
-    //        // Check credentials
-    //        int exists;
-    //        db << "select count(id) from user where email = ? and password = ?;"
-    //            << email
-    //            << secret
-    //            >> exists;
-
-    //        // check if user is not matched
-    //        if (!exists) {
-    //            res.code = 401;
-    //            res.end();
-    //            return;
-    //        }
-
-    //        // Generate a new refresh token
-    //        auto reg_refresh_token = jwt::create<jwt::traits::boost_json>()
-    //            .set_issuer("Manga Idea")
-    //            .set_type("JWT")
-    //            .set_issued_at(std::chrono::system_clock::now())
-    //            .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours{ 168 })
-    //            .set_payload_claim("email", boost::json::value(email))
-    //            .sign(jwt::algorithm::hs256{ refresh_token });
-
-    //        // update refresh token in the db
-    //        db << "update user set refresh_token = ? where email = ?;"
-    //            << reg_refresh_token
-    //            << email;
-
-    //        // update jwt cookie
-    //        auto& ctx = app.get_context<crow::CookieParser>(req);
-    //        ctx.set_cookie("jwt", reg_refresh_token).max_age(7 * 24 * 60 * 60 * 1000).httponly();
-    //    }
-    //    catch (const sqlite::sqlite_exception& e) {
-    //        fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
-    //        res.code = 401;
-    //        res.end();
-    //        return;
-    //    }
-
-    //    res.end();
-    //        });
-
-    //CROW_ROUTE(app, "/api/refreshtoken")
-    //    ([&](const crow::request& req, crow::response& res) {
-    //    auto& ctx = app.get_context<crow::CookieParser>(req);
-    //    auto cookie_jwt = ctx.get_cookie("jwt");
-
-    //    if (cookie_jwt.empty())
-    //    {
-    //        res.code = 401;
-    //        res.end();
-    //    }
-    //    else {
-    //        try {
-    //            auto jwt_verify = jwt::verify<jwt::traits::boost_json>().allow_algorithm(jwt::algorithm::hs256(refresh_token)).with_issuer("Manga Idea");
-    //            auto decoded = jwt::decode<jwt::traits::boost_json>(cookie_jwt);
-    //            std::error_code verify_error;
-    //            jwt_verify.verify(decoded, verify_error);
-
-    //            if (verify_error.value()) {
-    //                res.code = 401;
-    //                res.end();
-    //                return;
-    //            }
-
-    //            std::string email;
-    //            db << "select email from user where refresh_token = ? LIMIT 1;"
-    //                << cookie_jwt >> email;
-    //            auto dec_email = decoded.get_payload_claim("email").as_string();
-    //            if (email.empty() && email != dec_email) {
-    //                res.code = 401;
-    //                res.end();
-    //                return;
-    //            }
-
-    //            auto reg_access_token = jwt::create<jwt::traits::boost_json>()
-    //                .set_issuer("Manga Idea")
-    //                .set_type("JWT")
-    //                .set_issued_at(std::chrono::system_clock::now())
-    //                .set_expires_at(std::chrono::system_clock::now() + std::chrono::seconds{ 36000 })
-    //                .set_payload_claim("email", boost::json::value(email))
-    //                .sign(jwt::algorithm::hs256{ access_token });
-
-    //            boost::json::object reply{};
-    //            reply["access_token"] = reg_access_token;
-
-    //            res.write(boost::json::serialize(reply));
-    //            res.add_header("Content-Type", "application/json");
-    //        }
-    //        catch (const sqlite::sqlite_exception& e) {
-    //            fmt::print(stderr, "SQLite error: {}, code: {}, during {}.", e.what(), e.get_code(), e.get_sql());
-    //            res.code = 401;
-    //            res.end();
-    //            return;
-    //        }
-    //        res.code = 200;
-    //        res.end();
-    //    }
-    //        
-
-    //        });
-    
 }
 
 std::string convert_image(const bit7z::buffer_t const &bf, const std::string const &magick) {

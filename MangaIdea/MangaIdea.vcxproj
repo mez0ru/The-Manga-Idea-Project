@@ -127,7 +127,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>C:\Users\lazyhorse\Downloads\caches-master\include;C:\Users\lazyhorse\source\repos\bit7z\include;%(AdditionalIncludeDirectories);C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\lazyhorse\source\repos\bit7z\include;%(AdditionalIncludeDirectories);C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -145,7 +145,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>C:\Users\lazyhorse\source\repos\bit7z\include;%(AdditionalIncludeDirectories);C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\include;C:\Users\lazyhorse\Downloads\caches-master\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\lazyhorse\source\repos\bit7z\include;%(AdditionalIncludeDirectories);C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -161,6 +161,9 @@
     <ClCompile Include="src\MimeTypes.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\cache.hpp" />
+    <ClInclude Include="src\cache_policy.hpp" />
+    <ClInclude Include="src\fifo_cache_policy.hpp" />
     <ClInclude Include="src\MimeTypes.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
