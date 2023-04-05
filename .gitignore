@@ -40,3 +40,6 @@ settings.json
 *.idb
 *.iobj
 *.ipdb
+*.ilk
+
+bin/

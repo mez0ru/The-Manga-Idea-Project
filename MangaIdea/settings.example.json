@@ -6,6 +6,5 @@
     "regex_password": ".{4,}",
     "JWT_ISSUER": "The Manga Idea Project",
     "path_to_7z.dll": "Path to 7z.dll file i.e. (C:\\Program Files\\7-Zip-Zstandard\\7z.dll)",
-    "multithreaded": false,
     "chapters_cache_size": 20
 }

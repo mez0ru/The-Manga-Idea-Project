@@ -157,13 +157,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\cors.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\Middlewares.cpp" />
     <ClCompile Include="src\MimeTypes.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\cache.hpp" />
     <ClInclude Include="src\cache_policy.hpp" />
+    <ClInclude Include="src\cors.h" />
     <ClInclude Include="src\fifo_cache_policy.hpp" />
+    <ClInclude Include="src\Middlewares.h" />
     <ClInclude Include="src\MimeTypes.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

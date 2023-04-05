@@ -8,9 +8,48 @@ import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
 import Dashboard from './Dashboard';
 
+import {
+  createBrowserRouter,
+  RouterProvider,
+} from "react-router-dom";
+import ErrorPage from './Error-Page';
+import Login from './Login';
+import Register from './Register';
+import Home from './Home';
+import ChaptersPage from './ChaptersPage';
+import { AuthProvider } from './context/AuthProvider';
+
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <Dashboard />,
+    errorElement: <ErrorPage />,
+    children: [
+      {
+        path: "login",
+        element: <Login />,
+      },
+      {
+        path: "register",
+        element: <Register />,
+      },
+      {
+        path: "home",
+        element: <Home />,
+      },
+      {
+        path: "series/:id",
+        element: <ChaptersPage />,
+      },
+    ],
+  },
+]);
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     {/* <App /> */}
-    <Dashboard />
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
   </React.StrictMode>,
 )
