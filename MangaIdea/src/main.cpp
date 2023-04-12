@@ -20,12 +20,14 @@
 #include "openssl/hmac.h"
 #include "openssl/sha.h"
 #include "fmt/core.h"
-#include "exiv2/exiv2.hpp"
+#include "imageinfo.hpp"
+#include <sstream>
 #include "cache.hpp"
 #include "fifo_cache_policy.hpp"
 #include "MimeTypes.h"
 #include "cors.h"
 #include "Middlewares.h"
+#include "Cover.h"
 
 std::string refresh_token;
 std::string access_token;
@@ -81,7 +83,7 @@ inline std::unique_ptr<std::vector<char>> GenerateCoverFromArchiveImage(const bi
 
 inline int AnalyzeImages(const bit7z::BitArchiveReader& arc, sqlite::database& db, long long chapter_id) {
     int cover = -1;
-    bit7z::buffer_t* buff = new bit7z::buffer_t();
+    bit7z::buffer_t buff;
     
     // extract & resize cover
     for (auto& it : arc.items()) {
@@ -90,19 +92,17 @@ inline int AnalyzeImages(const bit7z::BitArchiveReader& arc, sqlite::database& d
             if (cover == -1)
                 cover = it.index();
 
-            arc.extract(*buff, it.index());
-            Exiv2::Image::AutoPtr img = Exiv2::ImageFactory::open(buff->data(), buff->size());
-            img->readMetadata();
+            arc.extract(buff, it.index());
+
+            auto imageInfo = getImageInfo<IIRawDataReader>(IIRawData(buff.data(), buff.size()));
             
             db << "insert into page (width, height, i, chapter_id) values (?, ?, ?, ?);"
-                << img->pixelWidth()
-                << img->pixelHeight()
+                << imageInfo.getWidth()
+                << imageInfo.getHeight()
                 << it.index()
                 << chapter_id;
         }
     }
-
-    delete buff;
 
     return cover;
 }
@@ -356,75 +356,14 @@ int main(int argc, char** argv)
     uWS::App()
         .get("/api/chapter/:id/cover", [&db](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
         JWTMiddleware(res, req, issuer, access_token);
-
-        if (!res->hasResponded()) {
-            unsigned long long id;
-            const auto string_id = req->getParameter(0);
-            auto id_result = std::from_chars(string_id.data(), string_id.data() + string_id.size(), id);
-            if (id_result.ec == std::errc::invalid_argument) {
-                res->writeStatus("400 Bad Request");
-                setCorsHeaders(res, req, false);
-                res->end();
-            }
-            else {
-
-                db << "select cover from chapter where id = ?;"
-                    << id
-                    >> [res, req](std::vector<char> cover) {
-                    res->writeHeader("Content-Type", "image/jpeg");
-                    setCorsHeaders(res, req, false);
-                    res->end({ cover.data(), cover.size() });
-                };
-
-                if (!res->hasResponded()) {
-                    boost::json::object reply{};
-                    reply["error"] = "Cover doesn't exist.";
-                    res->writeStatus("404 Not Found");
-                    res->writeHeader("Content-Type", "application/json");
-                    setCorsHeaders(res, req, false);
-                    res->end(boost::json::serialize(reply));
-                }
-            }
-            
-        }
+        ChapterCover(res, req, db);
             })
         .options("/api/chapter/:id/cover", [](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
                 setCorsHeaders(res, req);
             })
         .get("/api/series/:id/cover", [&db](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
         JWTMiddleware(res, req, issuer, access_token);
-
-        if (!res->hasResponded()) {
-            unsigned long long id;
-            const auto string_id = req->getParameter(0);
-            auto id_result = std::from_chars(string_id.data(), string_id.data() + string_id.size(), id);
-            if (id_result.ec == std::errc::invalid_argument) {
-                res->writeStatus("400 Bad Request");
-                setCorsHeaders(res, req, false);
-                res->end();
-            }
-            else {
-                db << "select cover from chapter where series_id = ? order by id desc limit 1;"
-                    << id
-                    >> [res, req](std::unique_ptr<std::vector<char>> cover) {
-                    if (cover != nullptr) {
-                        res->writeHeader("Content-Type", "image/jpeg");
-                        setCorsHeaders(res, req, false);
-                        res->end({ cover->data(), cover->size()});
-                    }
-                };
-
-                if (!res->hasResponded()) {
-                    boost::json::object reply{};
-                    reply["error"] = "Cover doesn't exist.";
-                    res->writeStatus("404 Not Found");
-                    res->writeHeader("Content-Type", "application/json");
-                    setCorsHeaders(res, req, false);
-                    res->end(boost::json::serialize(reply));
-                }
-            }
-
-        }
+        SeriesCover(res, req, db);
             })
         .options("/api/series/:id/cover", [](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
                 setCorsHeaders(res, req);
@@ -435,11 +374,12 @@ int main(int argc, char** argv)
         if (!res->hasResponded()) {
             boost::json::array reply{};
 
-            db << "select id, name from series;"
-                >> [&reply](long long id, std::string name) {
+            db << "select series.id, name, count(chapter.id) as chapters from series left join chapter on chapter.series_id = series.id group by series.id;"
+                >> [&reply](long long id, std::string name, int chapters) {
                 boost::json::object item;
                 item["id"] = id;
                 item["name"] = name;
+                item["chapters"] = chapters;
                 reply.push_back(item);
             };
 
@@ -452,6 +392,7 @@ int main(int argc, char** argv)
                 setCorsHeaders(res, req);
             })
         .get("/api/series/info/:id", [&db](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
+                JWTMiddleware(res, req, issuer, access_token);
                 unsigned long long id;
                 const auto string_id = req->getParameter(0);
                 auto id_result = std::from_chars(string_id.data(), string_id.data() + string_id.size(), id);
@@ -462,12 +403,13 @@ int main(int argc, char** argv)
                 }
                 else {
                     boost::json::array reply{};
-                    db << "select id, file_name from chapter where series_id = ?;"
+                    db << "select chapter.id, file_name, count(page.chapter_id) as pages from chapter inner join series on series.id = chapter.series_id inner join page on page.chapter_id = chapter.id where series_id = ? group by chapter.id;"
                         << id
-                >> [&reply](long long id, std::string file_name) {
+                >> [&reply](long long id, std::string file_name, int pages) {
                         boost::json::object item;
                         item["id"] = id;
                         item["name"] = file_name.erase(file_name.find_last_of('.'));
+                        item["pages"] = pages;
                         reply.push_back(item);
                     };
 
@@ -480,6 +422,7 @@ int main(int argc, char** argv)
                 setCorsHeaders(res, req);
                     })
         .get("/api/chapter/:chapter_id/page/:page_id", [&db, &lib, &chapters_cache](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
+                        JWTMiddleware(res, req, issuer, access_token);
                 unsigned long long chapter_id;
                 unsigned long long page_id;
 
@@ -563,7 +506,7 @@ int main(int argc, char** argv)
             setCorsHeaders(res, req);
                     })
         .get("/api/chapter/info/:id", [&db](uWS::HttpResponse<false>* res, uWS::HttpRequest* req) {
-                        
+                        JWTMiddleware(res, req, issuer, access_token);
                         boost::json::array arr{};
                         unsigned long long id;
                         const auto string_id = req->getParameter(0);

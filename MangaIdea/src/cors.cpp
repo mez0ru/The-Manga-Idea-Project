@@ -7,8 +7,8 @@
 void setCorsHeaders(uWS::HttpResponse<false>* res, uWS::HttpRequest* req, bool options = true) {
     const auto origin = std::string(req->getHeader("origin"));
 
-    fmt::print("OPTIONS CORS:\n");
 #ifdef _DEBUG
+    fmt::print("OPTIONS CORS:\n");
     for (auto h : *req) {
         fmt::print("{} : {}\n", h.first, h.second);
     }

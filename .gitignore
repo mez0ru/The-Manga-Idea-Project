@@ -43,3 +43,4 @@ settings.json
 *.ilk
 
 bin/
+*.ilk

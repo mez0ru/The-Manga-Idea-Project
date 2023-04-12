@@ -1,20 +1,20 @@
 import { useEffect, useState, useRef } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import useAxiosPrivate from './hooks/useAxiosPrivate';
 import Grid from '@mui/material/Grid';
-import ChapterCard from './ChapterCard';
+import ChapterCard from './Components/ChapterCard';
+
 
 export interface Chapter {
     id: number;
+    seriesId?: number;
     name: string;
+    pages: number;
 }
 
 export default function ChaptersPage() {
     let { id } = useParams();
 
-
-    const navigate = useNavigate();
-    const location = useLocation();
     const axiosPrivate = useAxiosPrivate();
 
     const [chapters, setChapters] = useState<Chapter[]>([])
@@ -29,7 +29,11 @@ export default function ChaptersPage() {
                     signal: controller.signal
                 });
                 console.log(response.data);
-                isMounted && setChapters(response.data as Chapter[]);
+                if (isMounted) {
+                    setChapters(response.data as Chapter[]);
+                    setChapters(x => x.map(y => Object.assign(y, { seriesId: parseInt(id!!) })));
+                    console.log(chapters);
+                }
             } catch (err) {
                 console.error(err);
                 // navigate('/login', { state: { from: location }, replace: true });

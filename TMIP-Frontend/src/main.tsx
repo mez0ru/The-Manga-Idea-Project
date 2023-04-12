@@ -18,6 +18,7 @@ import Register from './Register';
 import Home from './Home';
 import ChaptersPage from './ChaptersPage';
 import { AuthProvider } from './context/AuthProvider';
+import Viewer from './Viewer';
 
 const router = createBrowserRouter([
   {
@@ -39,7 +40,11 @@ const router = createBrowserRouter([
       },
       {
         path: "series/:id",
-        element: <ChaptersPage />,
+        element: <ChaptersPage />
+      },
+      {
+        path: "series/:seriesId/chapter/:id",
+        element: <Viewer />
       },
     ],
   },

@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import useAxiosPrivate from './hooks/useAxiosPrivate';
 import Grid from '@mui/material/Grid';
-import SeriesCard from './SeriesCard';
+import SeriesCard from './Components/SeriesCard';
 
 export interface Series {
     id: number;
     name: string;
+    chapters: number;
 }
 
 export default function Home() {
@@ -15,8 +16,6 @@ export default function Home() {
     const axiosPrivate = useAxiosPrivate();
 
     const [series, setSeries] = useState<Series[]>([])
-
-
 
     useEffect(() => {
         let isMounted = true;

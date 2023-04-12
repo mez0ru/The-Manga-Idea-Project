@@ -166,7 +166,9 @@
     <ClInclude Include="src\cache.hpp" />
     <ClInclude Include="src\cache_policy.hpp" />
     <ClInclude Include="src\cors.h" />
+    <ClInclude Include="src\Cover.h" />
     <ClInclude Include="src\fifo_cache_policy.hpp" />
+    <ClInclude Include="src\imageinfo.hpp" />
     <ClInclude Include="src\Middlewares.h" />
     <ClInclude Include="src\MimeTypes.h" />
   </ItemGroup>

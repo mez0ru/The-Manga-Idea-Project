@@ -80,7 +80,6 @@ export default function Register() {
 
             if (response.data?.success) {
                 navigate('/home');
-
             }
 
             // clear input fields
