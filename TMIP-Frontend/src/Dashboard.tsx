@@ -82,7 +82,7 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
   }),
 );
 
-const mdTheme = createTheme({
+export const mdTheme = createTheme({
   palette: {
     mode: 'dark',
   },

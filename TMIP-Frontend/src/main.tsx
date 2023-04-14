@@ -42,11 +42,12 @@ const router = createBrowserRouter([
         path: "series/:id",
         element: <ChaptersPage />
       },
-      {
-        path: "series/:seriesId/chapter/:id",
-        element: <Viewer />
-      },
+
     ],
+  },
+  {
+    path: "series/:seriesId/chapter/:id",
+    element: <Viewer />
   },
 ]);
 

@@ -20,6 +20,7 @@
 #include "openssl/hmac.h"
 #include "openssl/sha.h"
 #include "fmt/core.h"
+#include "fmt/chrono.h"
 #include "imageinfo.hpp"
 #include <sstream>
 #include "cache.hpp"
@@ -444,13 +445,22 @@ int main(int argc, char** argv)
                     //std::string mimetype;
                     bit7z::buffer_t buff;
                     std::string_view mimetype;
+                    bit7z::tstring name;
+                    std::string crc;
+                    bit7z::time_type lastModified;
 
                     if (chapter.second) // success
                     {
                         try {
                             // Extract the image file and send it to the client
                             chapter.first->second->extract(buff, page_id);
-                            mimetype = MimeTypes::getType(chapter.first->second->items().at(page_id).extension().c_str());
+                            auto item = chapter.first->second->items().at(page_id);
+                            name = item.name();
+                            std::stringstream stream;
+                            stream << std::hex << item.crc();
+                            crc = stream.str();
+                            lastModified = item.lastWriteTime();
+                            mimetype = MimeTypes::getType(item.extension().c_str());
                         }
                         catch (bit7z::BitException& e) {
                             res->writeStatus("404 Not Found");
@@ -487,7 +497,14 @@ int main(int argc, char** argv)
 
                         try {
                             arc->extract(buff, page_id);
-                            mimetype = MimeTypes::getType(arc->items().at(page_id).extension().c_str());
+                            auto item = arc->items().at(page_id);
+                            name = item.name();
+                            std::stringstream stream;
+                            stream << std::hex << item.crc();
+                            crc = stream.str();
+                            lastModified = item.lastWriteTime();
+
+                            mimetype = MimeTypes::getType(item.extension().c_str());
                         }
                         catch (bit7z::BitException& e) {
                             res->writeStatus("404 Not Found");
@@ -497,8 +514,12 @@ int main(int argc, char** argv)
                         }
                     }
 
-                    setCorsHeaders(res, req, false);
                     res->writeHeader("Content-Type", mimetype);
+                    res->writeHeader("Cache-Control", "max-age=0, must-revalidate, no-transform, private");
+                    res->writeHeader("Content-Disposition", fmt::format("inline; filename=\"{}\"", name));
+                    res->writeHeader("Last-Modified", fmt::format("{:%a, %d %b %Y %H:%M:%S} GMT", fmt::gmtime(lastModified)));
+                    res->writeHeader("Etag", fmt::format("\"{}\"", crc));
+                    setCorsHeaders(res, req, false);
                     res->end({ (char*)buff.data(), buff.size() });
                 }
         })
@@ -732,6 +753,7 @@ int main(int argc, char** argv)
                             res->writeHeader("Content-Type", "application/json");
                             // create or update jwt cookie
                             res->writeHeader("Set-Cookie", fmt::format("jwt={}; Max-Age={}; HttpOnly", reg_refresh_token, 7 * 24 * 60 * 60 * 1000));
+                            res->writeHeader("Set-Cookie", fmt::format("session={}; Max-Age={}", reg_access_token, 36000 * 1000));
                     }
                     catch (const sqlite::sqlite_exception& e) {
                         reply["error"] = fmt::format("Internal Server Error, check server logs for more information.");
@@ -820,6 +842,7 @@ int main(int argc, char** argv)
                         // create or update jwt cookie
                         res->writeHeader("Content-Type", "application/json");
                         res->writeHeader("Set-Cookie", fmt::format("jwt={}; Max-Age={}; HttpOnly", reg_refresh_token, 7 * 24 * 60 * 60 * 1000));
+                        res->writeHeader("Set-Cookie", fmt::format("session={}; Max-Age={}", reg_access_token, 36000 * 1000));
                         
                         setCorsHeaders(res, req, false);
                         res->end(boost::json::serialize(reply));
@@ -883,6 +906,7 @@ int main(int argc, char** argv)
                         boost::json::object reply{};
                         reply["accessToken"] = reg_access_token;
                         res->writeHeader("Content-Type", "application/json");
+                        res->writeHeader("Set-Cookie", fmt::format("session={}; Max-Age={}", reg_access_token, 36000 * 1000));
                         setCorsHeaders(res, req, false);
                         res->end(boost::json::serialize(reply));
                     }
