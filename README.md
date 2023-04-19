@@ -12,6 +12,7 @@ The project only uses 5-15 mb of Memory, which is just mindblowing compared to K
 
 # Status
 The project is in active development, still incomplete.
+Around 30% is done? But it's not even usable.
 
 # Dependencies
 To be added later.
