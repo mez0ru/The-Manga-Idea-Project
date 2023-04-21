@@ -27,7 +27,8 @@ use VCPKG to download these dependencies:
 6. sqlite_modern_cpp
 7. Magick++ (Download the binery from magick website and make sure to include development libraries during installation).
 8. fmt
-9. jwt-cpp
+9. jwt-cpp\
+\
 That's a long list, but to be shortened later, development speed is the most important thing for now 🤩
 
 # Stack
