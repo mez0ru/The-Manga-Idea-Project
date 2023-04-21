@@ -1,7 +1,7 @@
 # Manga Idea
 An attempt at rewriting [Komga](https://github.com/gotson/komga/) in C++. Komga is extremely versatile Comic server.\
 However, since it uses JVM runtime, it requires huge amount of memory.\
-From my experience, it's fast, beating Komga's performance is a challenge, even with a systems langauge like C++.
+From my experience, it's fast, beating Komga's performance is a challenge, even with systems langauge like C++.
 Nevertheless, I could achieve double the performance after trying several approaches.\
 If you are a systems administrator, I would strongly advise you to stick with Komga, since it has a lot of features, and battle tested.\
 The intended audience is people who want to run a local server on their own PC, such as myself.
