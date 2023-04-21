@@ -69,7 +69,7 @@ int MimeTypes::strcmpi(const char *s1, const char *s2) {
 }
 
 // Source: https://raw.githubusercontent.com/broofa/node-mime/master/types/standard.json
-MimeTypes::entry MimeTypes::types[347] =  {
+MimeTypes::entry MimeTypes::types[348] =  {
   {"*3gpp", "audio/3gpp"},
   {"*jpm", "video/jpm"},
   {"*mp3", "audio/mp3"},
@@ -112,7 +112,7 @@ MimeTypes::entry MimeTypes::types[347] =  {
   {"csv", "text/csv"},
   {"cu", "application/cu-seeme"},
   {"davmount", "application/davmount+xml"},
-  {"dbk", "application/docbook+xml"},
+  {"dbk", "application/docuser+xml"},
   {"deb", "application/octet-stream"},
   {"def", "text/plain"},
   {"deploy", "application/octet-stream"},
@@ -197,6 +197,7 @@ MimeTypes::entry MimeTypes::types[347] =  {
   {"jsonld", "application/ld+json"},
   {"jsonml", "application/jsonml+json"},
   {"jsx", "text/jsx"},
+  { "jxl", "image/jxl" },
   {"kar", "audio/midi"},
   {"ktx", "image/ktx"},
   {"less", "text/less"},

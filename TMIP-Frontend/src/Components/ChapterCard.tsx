@@ -25,7 +25,7 @@ export default function SeriesCard({ chapter }: Props) {
                         alt={chapter.name}
                         onLoad={() => setDone(true)}
                         onError={() => setDone(true)}
-                        src={`${BASE_URL}/api/chapter/${chapter.id}/cover`}
+                        src={`${BASE_URL}/api/v2/chapter/cover/${chapter.id}`}
                     />
                     <CardContent>
                         <Typography gutterBottom variant="body1" sx={{
@@ -39,7 +39,7 @@ export default function SeriesCard({ chapter }: Props) {
                         </Typography>
                         <br />
                         <Typography gutterBottom variant="body2">
-                            {chapter.pages} Pages
+                            {chapter.pages_count} Pages
                         </Typography>
                     </CardContent>
                 </CardActionArea>

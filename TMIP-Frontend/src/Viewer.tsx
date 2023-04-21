@@ -14,13 +14,23 @@ import Slider from '@mui/material/Slider';
 import { mdTheme } from './Dashboard';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
+export interface Page {
+    i: number;
+    isWide?: boolean; // to save bandwidth, treat it false implicitly if not set.
+}
+
+export interface ChapterInfo {
+    name?: string;
+    pages: Page[];
+}
+
 export default function Viewer() {
 
     // chapter id
     let { seriesId, id } = useParams();
     const navigate = useNavigate();
 
-    const [imageIds, setImageIds] = useState<number[]>([]);
+    const [chapterInfo, setChapterInfo] = useState<ChapterInfo>();
     const [hideBars, setHideBars] = useState(true);
 
     const [searchParams] = useSearchParams();
@@ -33,11 +43,13 @@ export default function Viewer() {
         document.body.style.backgroundColor = 'black';
         const getImageIds = async () => {
             try {
-                const response = await axiosPrivate.get(`/api/chapter/info/${id}`);
-                setImageIds(response?.data as number[]);
+                const response = await axiosPrivate.get(`/api/v2/chapter/${id}`);
+                setChapterInfo(response?.data);
 
             } catch (err) {
                 if (err instanceof AxiosError) {
+                    if (err.response?.status === 401 || err.response?.status === 403)
+                        navigate('/login', { state: { from: location }, replace: true });
                     // if (!err?.response) {
                     //     setErrMsg('No Server Response');
                     // } else if (err.response?.status === 400) {
@@ -48,8 +60,6 @@ export default function Viewer() {
                     //     setErrMsg('Login Failed');
                     // }
                     // errRef.current?.focus();
-
-                    console.log(err?.response);
                 }
             }
         }
@@ -57,7 +67,7 @@ export default function Viewer() {
         getImageIds();
 
         return () => {
-            setImageIds([]);
+            setChapterInfo(undefined);
             document.body.style.removeProperty('backgroundColor');
         }
     }, []);
@@ -68,7 +78,7 @@ export default function Viewer() {
         }
     };
 
-    if (imageIds.length) {
+    if (chapterInfo) {
         return (
             <ThemeProvider theme={mdTheme}>
                 <Slide appear={false} direction="down" in={hideBars}>
@@ -78,12 +88,12 @@ export default function Viewer() {
                                 <ArrowBack />
                             </IconButton>
                             <Typography variant="h6" color="inherit" component="div">
-                                Viewer
+                                {chapterInfo.name}
                             </Typography>
                         </Toolbar>
                     </AppBar>
                 </Slide>
-                <DualPage array={imageIds} chapterId={parseInt(id!!)} onClick={() => setHideBars(x => !x)} currentId={currentId} setCurrentId={setCurrentId} />
+                <DualPage array={chapterInfo.pages} chapterId={parseInt(id!!)} onClick={() => setHideBars(x => !x)} currentId={currentId} setCurrentId={setCurrentId} />
                 <Slide appear={false} direction="up" in={hideBars}>
                     <AppBar position="fixed" sx={{ top: 'auto', bottom: 0 }}>
                         <Toolbar variant="dense">
@@ -91,9 +101,9 @@ export default function Viewer() {
                             <Typography variant="body1" gutterBottom mr={2} mt={1}>
                                 0
                             </Typography>
-                            <Slider value={currentId} max={imageIds.length - 1} onChange={handleChange} size="small" aria-label="Default" valueLabelDisplay="auto" />
+                            <Slider value={currentId} max={chapterInfo.pages.length - 1} onChange={handleChange} size="small" aria-label="Default" valueLabelDisplay="auto" />
                             <Typography variant="body1" gutterBottom ml={2} mt={1}>
-                                {imageIds.length - 1}
+                                {chapterInfo.pages.length - 1}
                             </Typography>
                         </Toolbar>
                     </AppBar>

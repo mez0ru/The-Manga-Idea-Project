@@ -12,47 +12,64 @@ import LayersIcon from '@mui/icons-material/Layers';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import { Link } from 'react-router-dom';
+import useAxiosPrivate from './hooks/useAxiosPrivate';
+import { AxiosError } from 'axios';
 
-export const mainListItems = (
-  <React.Fragment>
-    <ListItemButton component={Link} to={`/home`}>
-      <ListItemIcon>
-        <HomeIcon />
-      </ListItemIcon>
-      <ListItemText primary="Home" />
-    </ListItemButton>
-    <ListItemButton>
-      <ListItemIcon>
-        <BookIcon />
-      </ListItemIcon>
-      <ListItemText primary="Libraries" />
-    </ListItemButton>
-    <ListItemButton>
-      <ListItemIcon>
-        <HistoryIcon />
-      </ListItemIcon>
-      <ListItemText primary="History" />
-    </ListItemButton>
-    <ListItemButton>
-      <ListItemIcon>
-        <SettingsIcon />
-      </ListItemIcon>
-      <ListItemText primary="Server Settings" />
-    </ListItemButton>
-    <ListItemButton>
-      <ListItemIcon>
-        <PersonIcon />
-      </ListItemIcon>
-      <ListItemText primary="Account Settings" />
-    </ListItemButton>
-    <ListItemButton>
-      <ListItemIcon>
-        <PowerSettingsNewIcon />
-      </ListItemIcon>
-      <ListItemText primary="Log Out" />
-    </ListItemButton>
-  </React.Fragment>
-);
+
+export const MainListItems = () => {
+  const axiosPrivate = useAxiosPrivate();
+  const logout = async () => {
+    try {
+      const response = await axiosPrivate.get('/api/logout');
+      location.reload();
+    } catch (err: unknown) {
+      if (err instanceof AxiosError) {
+
+      }
+    }
+  }
+
+  return (
+    <React.Fragment>
+      <ListItemButton component={Link} to={`/home`}>
+        <ListItemIcon>
+          <HomeIcon />
+        </ListItemIcon>
+        <ListItemText primary="Home" />
+      </ListItemButton>
+      {/* <ListItemButton>
+        <ListItemIcon>
+          <BookIcon />
+        </ListItemIcon>
+        <ListItemText primary="Libraries" />
+      </ListItemButton>
+      <ListItemButton>
+        <ListItemIcon>
+          <HistoryIcon />
+        </ListItemIcon>
+        <ListItemText primary="History" />
+      </ListItemButton>
+      <ListItemButton>
+        <ListItemIcon>
+          <SettingsIcon />
+        </ListItemIcon>
+        <ListItemText primary="Server Settings" />
+      </ListItemButton>
+      <ListItemButton>
+        <ListItemIcon>
+          <PersonIcon />
+        </ListItemIcon>
+        <ListItemText primary="Account Settings" />
+      </ListItemButton> */}
+      <ListItemButton onClick={logout}>
+        <ListItemIcon>
+          <PowerSettingsNewIcon />
+        </ListItemIcon>
+        <ListItemText primary="Log Out" />
+      </ListItemButton>
+    </React.Fragment>
+  )
+};
 
 export const secondaryListItems = (
   <React.Fragment>

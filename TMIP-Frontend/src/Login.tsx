@@ -9,7 +9,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import axios from "./api/axios";
 import { AxiosError } from 'axios';
 
-const LOGIN_URL = '/api/login';
+const LOGIN_URL = '/api/v2/auth/login';
 
 export default function Login() {
     const { setAuth } = useAuth();
@@ -90,10 +90,9 @@ export default function Login() {
                     <Grid item>
                         <TextField
                             required
-                            id="outlined-required"
                             label="Email"
                             type="email"
-                            style={{ width: '24rem' }}
+                            style={{ width: '20rem' }}
                             autoFocus
                             onChange={(e) => setEmail(e.target.value)}
                             value={email}
@@ -102,15 +101,19 @@ export default function Login() {
                     <Grid item>
                         <TextField
                             required
-                            id="outlined-required"
                             label="Password"
                             type="password"
-                            style={{ width: '24rem' }}
+                            style={{ width: '20rem' }}
                             onChange={(e) => setPwd(e.target.value)}
                             value={pwd}
                         /></Grid>
-                    <Grid item>
-                        <Button type='submit' variant="contained">Login</Button>
+                    <Grid item container direction="row-reverse" spacing={2}>
+                        <Grid item>
+                            <Button type='submit' variant="contained" disabled={email && pwd ? false : true}>Login</Button>
+                        </Grid>
+                        <Grid item>
+                            <Button variant="outlined" onClick={() => navigate('/register')}>Register</Button>
+                        </Grid>
                     </Grid>
                 </Grid>
             </form>

@@ -1,0 +1,11 @@
+{
+    "ACCESS_TOKEN_SECRET": "bba3fd64e10bda3be088845a2adedfa7795c4df9b78fd4b0c9e349d50692bc1db9fa29a2214c46faa52770f2eeaa12c80c7d736bee47966493b1b6156bfadb47",
+    "REFRESH_TOKEN_SECRET": "bba3fd64e10bda3be088845a2adedfa7795c4df9b78fd4b0c9e349d50692bc1db9fa29a2214c46faa52770f2eeaa12c80c7d736bee47966493b1b6156bfadb47",
+    "regex_name": "\\w{3,}",
+    "regex_email": "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$",
+    "regex_password": ".{4,}",
+    "JWT_ISSUER": "Manga Idea",
+    "path_to_7z.dll": "C:\\Program Files\\7-Zip-Zstandard\\7z.dll",
+    "multithreaded": false,
+    "chapters_cache_size": 2
+}

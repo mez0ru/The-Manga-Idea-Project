@@ -14,10 +14,20 @@ import Container from '@mui/material/Container';
 import Grid from '@mui/material/Grid';
 import Link from '@mui/material/Link';
 import MenuIcon from '@mui/icons-material/Menu';
+import Add from '@mui/icons-material/Add';
+import Edit from '@mui/icons-material/Edit';
+import Delete from '@mui/icons-material/Delete';
+import Refresh from '@mui/icons-material/Refresh';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import NotificationsIcon from '@mui/icons-material/Notifications';
-import { mainListItems, secondaryListItems } from './listItems';
-import { Outlet } from "react-router-dom";
+import Tooltip from '@mui/material/Tooltip';
+import { MainListItems, secondaryListItems } from './listItems';
+import { Outlet, useOutletContext, useLocation, useParams } from "react-router-dom";
+import AddSeries from './Components/AddSeriesDialog';
+import LinearProgress from '@mui/material/LinearProgress';
+import useAxiosPrivate from './hooks/useAxiosPrivate';
+import { AxiosError } from 'axios';
+import DeleteSeriesDialog from './Components/DeleteSeriesDialog';
 
 function Copyright(props: any) {
   return (
@@ -32,7 +42,7 @@ function Copyright(props: any) {
   );
 }
 
-const drawerWidth: number = 240;
+let drawerWidth: number = 240;
 
 interface AppBarProps extends MuiAppBarProps {
   open?: boolean;
@@ -88,11 +98,46 @@ export const mdTheme = createTheme({
   },
 });
 
+type MyContextType = { invalidate: boolean; setInvalidate: React.Dispatch<React.SetStateAction<boolean>>; isLoading: boolean; setIsLoading: React.Dispatch<React.SetStateAction<boolean>>; rescanChapters: boolean; setRescanChapters: React.Dispatch<React.SetStateAction<boolean>>; setName: React.Dispatch<React.SetStateAction<string>> };
+
+export function useMyOutletContext() {
+  return useOutletContext<MyContextType>();
+}
+
 function DashboardContent() {
-  const [open, setOpen] = React.useState(true);
+
+  const [open, setOpen] = React.useState(false);
+  const [addSeriesActive, setAddSeriesActive] = React.useState(false);
+  const [deleteSeriesDialog, setDeleteSeriesDialog] = React.useState(false);
+  const [invalidate, setInvalidate] = React.useState(true);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [name, setName] = React.useState('');
+  const { pathname } = useLocation();
+  const axiosPrivate = useAxiosPrivate();
+  let { id } = useParams();
+
+  drawerWidth = pathname === '/login' || pathname === '/register' ? 0 : 240;
+
   const toggleDrawer = () => {
     setOpen(!open);
   };
+
+  const reScanChapters = async (id: number | undefined) => {
+    // if (id !== undefined) {
+    //   setIsLoading(true);
+
+    //   try {
+    //     const response = await axiosPrivate.get(`/api/v2/update/series/${id}`);
+    //     setInvalidate(true);
+    //   } catch (err: unknown) {
+    //     if (err instanceof AxiosError) {
+    //       console.log(err);
+    //     }
+    //   }
+
+    //   setIsLoading(false);
+    // }
+  }
 
   return (
     <ThemeProvider theme={mdTheme}>
@@ -123,35 +168,58 @@ function DashboardContent() {
               noWrap
               sx={{ flexGrow: 1 }}
             >
-              Manga Idea
+              {name ? name : 'Manga Idea'}
             </Typography>
-            <IconButton color="inherit">
+            {pathname === '/home' ? <Tooltip title="Add a new series">
+              <IconButton color="inherit" onClick={() => setAddSeriesActive(true)} >
+                <Add />
+              </IconButton>
+            </Tooltip> : null}
+            {pathname.match(/^\/series\/\d{0,}$/g) ? <><Tooltip title="Rescan series folder for new chapters">
+              <IconButton color="inherit" onClick={() => reScanChapters(id ? parseInt(id) : undefined)} disabled={isLoading}>
+                <Refresh />
+              </IconButton>
+            </Tooltip>
+              <Tooltip title="Edit Series">
+                <IconButton color="inherit" onClick={() => setDeleteSeriesDialog(true)} disabled={isLoading}>
+                  <Edit />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Delete Series">
+                <IconButton color="inherit" onClick={() => setDeleteSeriesDialog(true)} disabled={isLoading}>
+                  <Delete />
+                </IconButton>
+              </Tooltip></> : null}
+            {/* <IconButton color="inherit">
               <Badge badgeContent={4} color="secondary">
                 <NotificationsIcon />
               </Badge>
-            </IconButton>
+            </IconButton> */}
           </Toolbar>
         </AppBar>
-        <Drawer variant="permanent" open={open}>
-          <Toolbar
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              px: [1],
-            }}
-          >
-            <IconButton onClick={toggleDrawer}>
-              <ChevronLeftIcon />
-            </IconButton>
-          </Toolbar>
-          <Divider />
-          <List component="nav">
-            {mainListItems}
-            <Divider sx={{ my: 1 }} />
-            {secondaryListItems}
-          </List>
-        </Drawer>
+        {pathname === '/login' || pathname === '/register' ? null :
+          <Drawer variant="permanent" open={open} ModalProps={{
+            keepMounted: true, // Better open performance on mobile.
+          }}>
+            <Toolbar
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                px: [1],
+              }}
+            >
+              <IconButton onClick={toggleDrawer}>
+                <ChevronLeftIcon />
+              </IconButton>
+            </Toolbar>
+            <Divider />
+            <List component="nav">
+              <MainListItems />
+              <Divider sx={{ my: 1 }} />
+              {secondaryListItems}
+            </List>
+          </Drawer>}
         <Box
           component="main"
           sx={{
@@ -165,9 +233,13 @@ function DashboardContent() {
           }}
         >
           <Toolbar />
+          {isLoading ? <LinearProgress variant='query' /> : null}
           <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-            <Grid container px={{ xs: 1, sm: 2, md: 4, lg: 2, xl: 3 }} spacing={3} style={{ marginTop: 50 }}>
-              <Outlet />
+            <Grid container spacing={3} style={{ marginTop: 50 }}>
+
+              <Outlet context={{ invalidate, setInvalidate, setName }} />
+              <AddSeries open={addSeriesActive} setOpen={setAddSeriesActive} setInvalidate={setInvalidate} />
+              <DeleteSeriesDialog open={deleteSeriesDialog} setOpen={setDeleteSeriesDialog} name={name} id={id ? parseInt(id) : undefined} />
             </Grid>
             <Copyright sx={{ pt: 4 }} />
           </Container>

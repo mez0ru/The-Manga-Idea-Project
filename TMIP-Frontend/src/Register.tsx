@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 
 const EMAIL_REGEX = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
 const PWD_REGEX = /^.{4,}/;
-const REGISTER_URL = '/api/register'
+const REGISTER_URL = '/api/v2/user'
 
 export default function Register() {
 
@@ -78,9 +78,7 @@ export default function Register() {
             console.log(JSON.stringify(response));
             setSuccess(true);
 
-            if (response.data?.success) {
-                navigate('/home');
-            }
+            navigate('/home');
 
             // clear input fields
         } catch (err: unknown) {
@@ -121,7 +119,6 @@ export default function Register() {
                     <Grid item>
                         <TextField
                             required
-                            id="outlined-required"
                             label="Email"
                             ref={emailRef}
                             type="email"
@@ -137,7 +134,6 @@ export default function Register() {
                     <Grid item>
                         <TextField
                             required
-                            id="outlined-required"
                             label="Password"
                             type="password"
                             style={{ width: '20rem' }}
@@ -151,7 +147,6 @@ export default function Register() {
                     <Grid item>
                         <TextField
                             required
-                            id="outlined-required"
                             label="Confirm Password"
                             type="password"
                             style={{ width: '20rem' }}
@@ -162,8 +157,13 @@ export default function Register() {
                             onFocus={() => setMatchFocus(true)}
                             onBlur={() => setMatchFocus(false)}
                         /></Grid>
-                    <Grid item>
-                        <Button type='submit' variant="contained" disabled={!validEmail || !validPwd || !validMatch ? true : false}>Register</Button>
+                    <Grid item container direction="row-reverse" spacing={2}>
+                        <Grid item>
+                            <Button type='submit' variant="contained" disabled={!validEmail || !validPwd || !validMatch ? true : false}>Register</Button>
+                        </Grid>
+                        <Grid item>
+                            <Button variant="outlined" onClick={() => navigate('/login')}>Login</Button>
+                        </Grid>
                     </Grid>
                 </Grid>
             </form>

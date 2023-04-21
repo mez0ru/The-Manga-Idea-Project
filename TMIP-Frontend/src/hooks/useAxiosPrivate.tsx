@@ -12,7 +12,7 @@ const useAxiosPrivate = () => {
             config => {
                 if (!config.headers['Authorization']) {
                     config.headers['Authorization'] = `Bearer ${auth?.accessToken}`;
-                    self.addEventListener('fetch', function (event) {
+                    self.addEventListener('fetch', function (event: any) {
                         const newRequest = new Request(event.request, {
                             headers: { "Authorization": `Bearer ${auth?.accessToken}` },
                             mode: "cors"
@@ -32,7 +32,7 @@ const useAxiosPrivate = () => {
                     prevRequest.sent = true;
                     const newAccessToken = await refresh();
                     prevRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
-                    self.addEventListener('fetch', function (event) {
+                    self.addEventListener('fetch', function (event: any) {
                         const newRequest = new Request(event.request, {
                             headers: { "Authorization": `Bearer ${newAccessToken}` },
                             mode: "cors"
