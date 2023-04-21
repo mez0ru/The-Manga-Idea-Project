@@ -29,7 +29,7 @@ use VCPKG to download these dependencies:
 8. fmt
 9. jwt-cpp\
 \
-That's a long list, but to be shortened later, development speed is the most important thing for now 🤩
+That's a long list, planning on shortening it later, development speed is the most important thing for now 🤩
 
 # Stack
 1. React + MUI
