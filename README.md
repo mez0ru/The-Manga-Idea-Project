@@ -7,7 +7,7 @@ If you are a systems administrator, I would strongly advise you to stick with Ko
 The intended audience is people who want to run a local server on their own PC, such as myself.
 
 # Goals
-1. Acheive good performance like Komga.
+1. Achieve good performance like Komga.
 2. Good reading experience on the frontend.
 3. Stability, and rare crashes.
 4. Less than 10mb of memory usage.
