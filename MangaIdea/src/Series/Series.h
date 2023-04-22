@@ -76,6 +76,9 @@ public:
 	auto on_new_series(
 		const restinio::request_handle_t& req,
 		restinio::router::route_params_t params);
+	auto on_series_update(
+		const restinio::request_handle_t& req,
+		restinio::router::route_params_t);
 	auto on_series_list(
 		const restinio::request_handle_t& req,
 		restinio::router::route_params_t);

@@ -6,6 +6,9 @@ import SeriesCard from './Components/SeriesCard';
 import { useMyOutletContext } from './Dashboard';
 import { AxiosError } from 'axios';
 
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+
 export interface Series {
     id: number;
     name: string;
@@ -18,7 +21,18 @@ export default function Home() {
     const location = useLocation();
     const axiosPrivate = useAxiosPrivate();
 
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const open = Boolean(anchorEl);
+
     const [series, setSeries] = useState<Series[]>([])
+    const handleClose = () => {
+        setAnchorEl(null);
+    };
+
+    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.preventDefault();
+        setAnchorEl(event.currentTarget);
+    };
 
     useEffect(() => {
         let isMounted = true;
@@ -54,9 +68,30 @@ export default function Home() {
             {
                 series.map((item, i) => (
                     <Grid item key={i}>
-                        <SeriesCard series={item} />
+                        <SeriesCard series={item} onContextMenu={handleClick} />
                     </Grid>))
             }
         </Grid>
+        <Menu
+            id="basic-menu"
+            anchorEl={anchorEl}
+            open={open}
+            onClose={handleClose}
+            MenuListProps={{
+                'aria-labelledby': 'basic-button',
+            }}
+            anchorOrigin={{
+                vertical: 'top',
+                horizontal: 'center',
+            }}
+            transformOrigin={{
+                vertical: 'top',
+                horizontal: 'left',
+            }}
+        >
+            <MenuItem onClick={handleClose}>Delete Series</MenuItem>
+            <MenuItem onClick={handleClose}>Rescan Series</MenuItem>
+            <MenuItem onClick={handleClose}>Edit Series</MenuItem>
+        </Menu>
     </div>)
 }

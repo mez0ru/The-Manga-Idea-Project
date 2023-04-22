@@ -179,11 +179,8 @@
     <ClInclude Include="src\Auth\KeyGeneration.h" />
     <ClInclude Include="src\User\User.h" />
     <ClInclude Include="src\Auth\UserRoles.h" />
-    <ClInclude Include="src\cache.hpp" />
-    <ClInclude Include="src\cache_policy.hpp" />
     <ClInclude Include="src\Chapter\Chapter.h" />
     <ClInclude Include="src\Chapter\ProcessChapters.h" />
-    <ClInclude Include="src\fifo_cache_policy.hpp" />
     <ClInclude Include="src\imageinfo.hpp" />
     <ClInclude Include="src\JpegXLExif.h" />
     <ClInclude Include="src\MimeTypes.h" />

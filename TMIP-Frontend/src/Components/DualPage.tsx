@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, ReactElement } from 'react'
 import Grid from '@mui/material/Grid';
 import { BASE_URL } from '../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { Page } from '../Viewer';
+import { createPortal } from 'react-dom';
 
 // const BASE_URL = 'http://localhost:4000'
 
@@ -20,6 +21,9 @@ export default function DualPage({ chapterId, array, onClick, currentId, setCurr
 
     const refImg1 = useRef<HTMLImageElement>(null);
     const refImg2 = useRef<HTMLImageElement>(null);
+
+    // const [imgPool, setImgPool] = useState<ReactElement[]>([]);
+    const [imgs, setImgs] = useState<Map<number, HTMLImageElement>>();
 
     const hideImages = () => {
         if (refImg1.current)
@@ -125,12 +129,6 @@ export default function DualPage({ chapterId, array, onClick, currentId, setCurr
 
         document.addEventListener('keydown', keyDownEvent);
 
-        // // preload images to speed up browsing, honestly, this is a poor attempt but kinda works.
-        // if (array.length - 4 > currentId)
-        //     array.slice(currentId + 2, currentId + 4).forEach((x, i) => {
-        //         console.log(`preloaded ${x.i}`);
-        //         new Image().src = `${BASE_URL}/api/chapter/${chapterId}/page/${x.i}`;
-        //     });
 
         return () => {
             document.removeEventListener('keydown', keyDownEvent);
@@ -173,10 +171,10 @@ export default function DualPage({ chapterId, array, onClick, currentId, setCurr
             return (
                 <Grid container onClick={onImgClick}>
                     <Grid item xs={6}>
-                        <img style={{ height: '100vh', float: 'right' }} ref={refImg1} alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[currentId].i}`} onLoad={onLoad} hidden />
+                        <img style={{ height: '100vh', float: 'right' }} ref={refImg1} alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[currentId + 1].i}`} onLoad={onLoad} hidden />
                     </Grid>
                     <Grid item xs={6}>
-                        <img style={{ height: '100vh', float: 'left' }} ref={refImg2} alt='2' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[currentId + 1].i}`} onLoad={onLoad} hidden />
+                        <img style={{ height: '100vh', float: 'left' }} ref={refImg2} alt='2' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[currentId].i}`} onLoad={onLoad} hidden />
                     </Grid>
                 </Grid>);
         }

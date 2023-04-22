@@ -1,7 +1,3 @@
-#define _HAS_AUTO_PTR_ETC 1
-#define BIT7Z_AUTO_FORMAT
-#define BIT7Z_REGEX_MATCHING
-
 #include "restinio/all.hpp"
 //#include <fstream>
 //#include <filesystem>
@@ -25,6 +21,7 @@
 #include "Settings.h"
 #include "Chapter/Chapter.h"
 #include "Series/Series.h"
+#include "sqlite3.h"
 
 //std::regex NAME_REGEX;
 //std::regex EMAIL_REGEX;
@@ -125,7 +122,7 @@ int main(int argc, char** argv)
     std::shared_ptr<sqlite::database> db = std::make_unique<sqlite::database>("data.db");
 #else
     std::shared_ptr<sqlite::database> db = std::make_unique<sqlite::database>("data.db");
-#endif // _DEBUG
+#endif // _DEBUG    
 
     *db << R"(create table if not exists user (
         id integer primary key autoincrement not null,
@@ -189,6 +186,8 @@ int main(int argc, char** argv)
                 BEGIN
                     UPDATE chapter SET updated_at=CURRENT_TIMESTAMP WHERE id=NEW.id;
                 END;)";
+
+    *db << "PRAGMA foreign_keys=ON;";
     
     //fifo_cache_t<int, std::shared_ptr<bit7z::BitArchiveReader>> chapters_cache(chapters_cache_size);
     //fifo_cache_t<unsigned long long, BitArchiveReader*> chapters_cache(chapters_cache_size);

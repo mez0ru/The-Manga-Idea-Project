@@ -5,30 +5,6 @@ chapters_handler_t::chapters_handler_t(std::shared_ptr<sqlite::database> db, con
 	, m_allowedOrigins{ allowedOrigins }
 {}
 
-//auto chapters_handler_t::on_chapters_list(
-//	const restinio::request_handle_t& req,
-//	const std::uint32_t seriesnum) const
-//{
-//	auto resp = init_resp(req->create_response(), m_allowedOrigins, req->header().try_get_field("origin") ? *req->header().try_get_field("origin") : "", "application/json");
-//	req->header().try_get_field("cookie");
-//	resp.append_header("Authorization", "");
-//
-//	uint64_t size;
-//	*m_db.lock() << "select count(id) from chapter;"
-//		>> size;
-//	std::vector<chapter_t> chapters;
-//	chapters.reserve(size);
-//	*m_db.lock() << "select id, name, email, role, created_at from chapter;"
-//		>> [&chapters](uint64_t id, std::string name, std::string email, int role, std::string created_at) {
-//		chapter_t chapter{ id, name.size() ? std::optional<std::string>(name) : std::nullopt, email, role, created_at };
-//		chapters.emplace_back(chapter);
-//	};
-//
-//	resp.set_body(json_dto::to_json< std::vector<chapter_t>>(chapters));
-//
-//	return resp.done();
-//}
-
 auto chapters_handler_t::on_page_get(
 	const restinio::request_handle_t& req,
 	restinio::router::route_params_t params)
@@ -49,7 +25,7 @@ auto chapters_handler_t::on_page_get(
 
 	struct archive* a;
 	struct archive_entry* entry = NULL;
-	int r;
+	la_ssize_t r;
 	a = archive_read_new();
 	archive_read_support_filter_all(a);
 	archive_read_support_format_all(a);
@@ -70,41 +46,24 @@ auto chapters_handler_t::on_page_get(
 			// in the future I will use a more reliable way to do this.
 			size_t size = archive_entry_size(entry);
 			resp.header().set_field("Content-Type", MimeTypes::getType(name.c_str()));
-			//std::unique_ptr<char[]> buff = std::make_unique<char[]>(size);
 
 			buff = new char[size];
-			//std::unique_ptr<char, decltype(&std::free)> cs(buff, std::free);
-			uint64_t offset = 0;
-			//uint32_t crc = 0;
-
+			int64_t offset = 0;
 			// Read chunks from the archive
 			do {
-				r = archive_read_data(a, buff + offset, 10240);
-				//crc = aws_checksums_crc32c((const uint8_t*)buff + offset, r, crc);
-				//result.process_bytes(buff + offset, r);
-				//crc = crc32c_extend(crc, (const uint8_t*)buff + offset, r);
-			} while ((offset += r) < size);
-										
-			//resp.set_body(std::vector<char>{ buff.get(), buff.get() + size });
-			resp.set_body(std::string_view{ buff, size});
-										
-			//delete[] buff;
-			//crc = crc32c_value((const uint8_t*)buff, size);
+				offset += archive_read_data(a, buff + offset, 10240);
+			} while ((unsigned)(offset - 0) < (size - 0));
+			// Since this is a signed integer, we want to prevent bugs that could terminate the program,
+			// So we have to check if a number is between 0 and size, with only one comparison.
+			// https://stackoverflow.com/questions/17095324/fastest-way-to-determine-if-an-integer-is-between-two-integers-inclusive-with/17095534#17095534
 
-			//std::stringstream stream;
-			//stream << std::hex << crc;
-			//std::string ccc = stream.str();
-			// 
-			//if (r != ARCHIVE_OK) {
-			//	printf("Error reading data: %s\n", archive_error_string(a));
-			//	break;
-			//}
+			if (offset < 1) // Could not read the entry.
+				mark_as_bad_request(resp);
+			else
+				resp.set_body(std::string_view{ buff, size});
 		}
 	}
 	archive_read_free(a);
-								
-								
-	//resp.set_body("buff");
 };
 
 	//return response, callback to release any resources left.
@@ -332,7 +291,7 @@ static RESP
 chapters_handler_t::init_resp(RESP resp, const std::vector<std::string>& allowedOrigins, const std::string& origin, const std::string& contentType)
 {
 	resp
-		.append_header("Server", "RESTinio sample server /v.0.6.17")
+		.append_header("Server", "RESTinio server /v.0.6.17")
 		.append_header_date_field()
 		.append_header("Content-Type", contentType)
 

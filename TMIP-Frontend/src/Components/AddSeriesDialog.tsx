@@ -115,7 +115,7 @@ export default function AddSeries({ open, setOpen, setInvalidate }: Props) {
             <CodeItemInfo elevation={3}>
                 Series "{name}" has been added with chapters:<br />
                 {addedChapters.map((x: Chapter, index: number) =>
-                    <>{`Chapter ${index + 1}: ${x.file_name ?? 'Not added'}`}<br />{`Pages: ${x.pages ?? 0}`}{x.error ? <><br /><p style={{ color: 'red' }}>{`Error: ${x.error}`}</p></> : null}<br /><br /></>)}
+                    <>{`Chapter ${index + 1}: ${x.file_name ?? 'Not added'}`}<br />{`Pages: ${x.pages_count ?? 0}`}{x.error ? <><br /><p style={{ color: 'red' }}>{`Error: ${x.error}`}</p></> : null}<br /><br /></>)}
             </CodeItemInfo>
         } />
     </>

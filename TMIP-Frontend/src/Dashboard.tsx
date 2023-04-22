@@ -123,20 +123,22 @@ function DashboardContent() {
   };
 
   const reScanChapters = async (id: number | undefined) => {
-    // if (id !== undefined) {
-    //   setIsLoading(true);
+    if (id !== undefined) {
+      setIsLoading(true);
 
-    //   try {
-    //     const response = await axiosPrivate.get(`/api/v2/update/series/${id}`);
-    //     setInvalidate(true);
-    //   } catch (err: unknown) {
-    //     if (err instanceof AxiosError) {
-    //       console.log(err);
-    //     }
-    //   }
+      try {
+        const response = await axiosPrivate.put(`/api/v2/series`, {
+          id
+        });
+        setInvalidate(true);
+      } catch (err: unknown) {
+        if (err instanceof AxiosError) {
+          console.log(err);
+        }
+      }
 
-    //   setIsLoading(false);
-    // }
+      setIsLoading(false);
+    }
   }
 
   return (

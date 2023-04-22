@@ -9,7 +9,6 @@
 #include "crc32c/crc32c.h"
 #include "../Series/Series.h"
 
-
 static std::unordered_map<std::string_view, IIFormat> xiaozhuaiImageInfoExtensionList = {
     {"avif", II_FORMAT_AVIF},
     {"bmp", II_FORMAT_BMP},
@@ -32,6 +31,16 @@ static std::unordered_map<std::string_view, IIFormat> xiaozhuaiImageInfoExtensio
     {"tiff", II_FORMAT_TIFF},
     {"tif", II_FORMAT_TIFF},
     {"webp", II_FORMAT_WEBP} 
+};
+
+static std::array<std::string, 7> supportedArchives = {
+    ".zip",
+    ".cbz",
+    ".cbr",
+    ".7z",
+    ".rar",
+    ".xz",
+    ".tar"
 };
 
 uint32_t AnalyzeImages(archive* arc, sqlite::database& db, long long chapter_id);

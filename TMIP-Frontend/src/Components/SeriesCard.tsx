@@ -11,13 +11,14 @@ import Grow from '@mui/material/Grow';
 
 interface Props {
     series: Series;
+    onContextMenu: React.MouseEventHandler<HTMLElement>;
 }
 
-export default function SeriesCard({ series }: Props) {
+export default function SeriesCard({ series, onContextMenu }: Props) {
     const [done, setDone] = useState(false);
 
     return (
-        <Grow in={done}>
+        <Grow in={done} onContextMenu={onContextMenu}>
             <Card sx={{ maxWidth: 150 }}>
                 <CardActionArea component={Link} to={`/series/${series.id}`}>
                     <CardMedia

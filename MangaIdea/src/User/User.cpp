@@ -96,7 +96,7 @@ users_handler_t::users_handler_t(std::shared_ptr<sqlite::database> db, const std
 		users_handler_t::init_resp(RESP resp, const std::vector<std::string>& allowedOrigins, const std::string& origin)
 	{
 		resp
-			.append_header("Server", "RESTinio sample server /v.0.6.17")
+			.append_header("Server", "RESTinio server /v.0.6.17")
 			.append_header_date_field()
 			.append_header("Content-Type", "application/json")
 

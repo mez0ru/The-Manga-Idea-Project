@@ -57,6 +57,40 @@ auto seriess_handler_t::on_series_delete(
 	return resp.done();
 }
 
+auto seriess_handler_t::on_series_update(
+	const restinio::request_handle_t& req,
+	restinio::router::route_params_t)
+{
+	auto resp = init_resp(req->create_response(restinio::status_no_content()), m_allowedOrigins, req->header().try_get_field("origin") ? *req->header().try_get_field("origin") : "", "application/json");
+
+
+	try {
+		auto json = json_dto::from_json< series_t >(req->body());
+		if (json.m_id.has_value()) {
+			if (json.m_name.has_value())
+			{
+				// Change series name, folder, etc...
+			}
+			else {
+				// Update chapters only
+
+				*m_db.lock() << "select folder_path from series where id = ? limit 1;"
+				    << json.m_id.value()
+					>> [&](std::string path) {
+					std::vector<chapter_t> chapters{};
+					AddNewChapters(*m_db.lock(), chapters, path, json.m_id.value());
+				};
+				//resp.set_body(json_dto::to_json<series_t>({ json.m_id.value(), json.m_name.value(), chapters}));
+			}
+		}
+	}
+	catch (std::exception&) {
+		mark_as_bad_request(resp);
+	}
+
+	return resp.done();
+}
+
 auto seriess_handler_t::on_new_series(
 	const restinio::request_handle_t& req,
 	restinio::router::route_params_t params)
@@ -96,7 +130,7 @@ auto seriess_handler_t::on_new_series(
 
 							std::vector<chapter_t> chapters{};
 
-			                AddNewChapters(*m_db.lock(), chapters, json.m_folder_path.value(), seriesInserted);
+			                AddNewChapters(*m_db.lock(), chapters, json.m_folder_path.value().insert(0, R"(\\?\)"), seriesInserted);
 							resp.set_body(json_dto::to_json<series_t>({ seriesInserted, json.m_name.value(), chapters }));
 		}
 		else
@@ -213,7 +247,7 @@ static RESP
 seriess_handler_t::init_resp(RESP resp, const std::vector<std::string>& allowedOrigins, const std::string& origin, const std::string& contentType)
 {
 	resp
-		.append_header("Server", "RESTinio sample server /v.0.6.17")
+		.append_header("Server", "RESTinio server /v.0.6.17")
 		.append_header_date_field()
 		.append_header("Content-Type", contentType)
 
@@ -258,11 +292,14 @@ void series_handler(restinio::router::express_router_t<>& router, std::shared_pt
 		by(&seriess_handler_t::on_series_list));
 	router.http_post("/api/v2/series",
 		by(&seriess_handler_t::on_new_series));
+	router.http_put("/api/v2/series",
+		by(&seriess_handler_t::on_series_update));
 
 	router.add_handler(
 		restinio::router::none_of_methods(
 			restinio::http_method_get(),
-			restinio::http_method_post()), "/api/v2/series",
+			restinio::http_method_post(),
+			restinio::http_method_put()), "/api/v2/series",
 		method_not_allowed);
 
 	router.add_handler(

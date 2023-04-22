@@ -169,7 +169,7 @@ static RESP
 auth_handler_t::init_resp(RESP resp)
 {
 	resp
-		.append_header("Server", "RESTinio sample server /v.0.6.17")
+		.append_header("Server", "RESTinio server /v.0.6.17")
 		.append_header_date_field();
 
 	return resp;
