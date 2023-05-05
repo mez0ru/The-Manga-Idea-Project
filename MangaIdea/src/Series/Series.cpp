@@ -78,7 +78,7 @@ auto seriess_handler_t::on_series_update(
 				    << json.m_id.value()
 					>> [&](std::string path) {
 					std::vector<chapter_t> chapters{};
-					AddNewChapters(*m_db.lock(), chapters, path, json.m_id.value());
+					//AddNewChapters(*m_db.lock(), chapters, path, json.m_id.value());
 				};
 				//resp.set_body(json_dto::to_json<series_t>({ json.m_id.value(), json.m_name.value(), chapters}));
 			}
@@ -127,11 +127,39 @@ auto seriess_handler_t::on_new_series(
 								<< json.m_name.value()
 								<< json.m_folder_path.value();
 							int64_t seriesInserted{ m_db.lock()->last_insert_rowid() }; // get series id
-
-							std::vector<chapter_t> chapters{};
-
-			                AddNewChapters(*m_db.lock(), chapters, json.m_folder_path.value().insert(0, R"(\\?\)"), seriesInserted);
-							resp.set_body(json_dto::to_json<series_t>({ seriesInserted, json.m_name.value(), chapters }));
+							m_asyncTasks.emplace(seriesInserted, std::async(std::launch::async,
+								AddNewChapters, m_db, 
+#ifdef _WIN32: // Long path support hack
+								json.m_folder_path.value().insert(0, R"(\\?\)")
+#else
+								json.m_folder_path.value()
+#endif
+							, seriesInserted));
+							resp.header().status_line(restinio::status_accepted());
+							resp.set_body(json_dto::to_json<series_t>({ seriesInserted, json.m_name.value()}));
+		}
+		else if (json.m_id.has_value()) // Check task...
+		{
+			if (auto item = m_asyncTasks.find(json.m_id.value()); item != m_asyncTasks.end()) {
+				if (item->second.wait_for(std::chrono::milliseconds(100)) == std::future_status::ready) {
+					// Finished
+					//resp.header().status_line(restinio::status_reset_content());
+					*m_db.lock() << "select name from series where id = ?;"
+						<< json.m_id.value()
+						>> [id = json.m_id.value() ,&resp, &item](std::string name) {
+							resp.set_body(json_dto::to_json<series_t>({ id, name, item->second.get()}));
+					};
+					 m_asyncTasks.erase(json.m_id.value());
+				}
+				else {
+					// Not finished
+					resp.header().status_line(restinio::status_no_content());
+				}
+			}
+			else {
+				// Async task doesn't exist...
+				resp.header().status_line(restinio::status_not_found());
+			}
 		}
 		else
 		{
@@ -139,7 +167,8 @@ auto seriess_handler_t::on_new_series(
 			resp.set_body(json_dto::to_json<series_t>({ "incomplete fields." }));
 		}
 	}
-	catch (std::exception&) {
+	catch (std::exception& exc) {
+		std::cout << exc.what() << "\n";
 		mark_as_bad_request(resp);
 		resp.set_body(json_dto::to_json<series_t>({ "Error adding series." }));
 	}
@@ -161,8 +190,11 @@ auto seriess_handler_t::on_series_list(
 		series.reserve(size);
 
 		*m_db.lock() << "select series.id, name, count(chapter.id) as chapters from series left join chapter on chapter.series_id = series.id group by series.id;"
-			>> [&resp, &series](uint64_t id, std::string name, uint32_t chapters) {
-			series.emplace_back(id, name, chapters);
+			>> [&](uint64_t id, std::string name, uint32_t chapters) {
+			if (m_asyncTasks.find(id) == m_asyncTasks.end())
+				series.emplace_back(id, name, chapters, std::nullopt);
+			else
+				series.emplace_back(id, name, chapters, true);
 		};
 		resp.set_body(json_dto::to_json<std::vector<series_t>>(series));
 	}

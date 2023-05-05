@@ -4,6 +4,7 @@ import { BASE_URL } from '../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { Page } from '../Viewer';
 import { createPortal } from 'react-dom';
+import './DualPage.css';
 
 // const BASE_URL = 'http://localhost:4000'
 
@@ -16,6 +17,49 @@ interface Props {
     // onClick: React.MouseEventHandler<HTMLImageElement>;
 }
 
+const DualPageRender = (chapterId: number, id: number, array: Page[], onImgClick: React.MouseEventHandler<HTMLImageElement>) => {
+    if (id !== 0) {
+        if ((!array[id].isWide && (id != array.length - 1 && array[id + 1].isWide)) || id == array.length - 1 || (array.length > 2 && id == array.length - 2)) {
+            return (<Grid container onClick={onImgClick}>
+                <Grid item xs={6}>
+                    <img style={{ height: '100vh', float: 'right' }} loading="lazy" alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id].i}`} />
+                </Grid>
+                <Grid item xs={6}>
+                </Grid>
+            </Grid>);
+        } else if (array[id].isWide) {
+            return (
+                <Grid container onClick={onImgClick}>
+                    <Grid item xs={12}>
+                        <img style={{ height: '100vh', display: 'block', margin: '0 auto' }} loading="lazy" alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id].i}`} />
+                    </Grid>
+                </Grid>);
+        }
+        else {
+            return (
+                <Grid container onClick={onImgClick}>
+                    <Grid item xs={6}>
+                        <img style={{ height: '100vh', float: 'right' }} loading="lazy" alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id + 1].i}`} />
+                    </Grid>
+                    <Grid item xs={6}>
+                        <img style={{ height: '100vh', float: 'left' }} loading="lazy" alt='2' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id].i}`} />
+                    </Grid>
+                </Grid>);
+        }
+    }
+    else {
+        return (
+            <Grid container onClick={onImgClick}>
+                <Grid item xs={6}>
+                </Grid>
+                <Grid item xs={6}>
+                    <img style={{ height: '100vh', float: 'left' }} loading="lazy" alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id].i}`} />
+                </Grid>
+            </Grid>
+        )
+    }
+}
+
 export default function DualPage({ chapterId, array, onClick, currentId, setCurrentId }: Props) {
     const navigate = useNavigate()
 
@@ -25,17 +69,8 @@ export default function DualPage({ chapterId, array, onClick, currentId, setCurr
     // const [imgPool, setImgPool] = useState<ReactElement[]>([]);
     const [imgs, setImgs] = useState<Map<number, HTMLImageElement>>();
 
-    const hideImages = () => {
-        if (refImg1.current)
-            refImg1.current.setAttribute('hidden', '');
-
-        if (refImg2.current)
-            refImg2.current.setAttribute('hidden', '');
-    }
-
     const forward = () => {
         if (currentId !== array.length - 1) {
-            hideImages();
             setCurrentId(x => {
                 // refImg1.current!.hidden = true;
                 if ((currentId !== array.length - 1 && array[x + 1].isWide) || currentId !== array.length - 1 || array[x].isWide || x === 0) {
@@ -51,7 +86,6 @@ export default function DualPage({ chapterId, array, onClick, currentId, setCurr
 
     const backward = () => {
         if (currentId !== 0) {
-            hideImages();
             setCurrentId(x => {
                 // refImg1.current!.hidden = true;
                 if (array[x - 1].isWide || currentId <= 2) {
@@ -66,7 +100,6 @@ export default function DualPage({ chapterId, array, onClick, currentId, setCurr
             })
         }
     }
-
 
     const onImgClick = (e: React.MouseEvent<HTMLImageElement>) => {
         if (e.clientY > e.currentTarget.clientHeight / 1.5) {
@@ -108,8 +141,9 @@ export default function DualPage({ chapterId, array, onClick, currentId, setCurr
             return;
         }
 
-        console.log(`current id: ${currentId}, wide: ${array[currentId].isWide}`);
+        // console.log(`current id: ${currentId}, wide: ${array[currentId].isWide}`);
 
+        // Change URL based on page index
         const params = new URLSearchParams()
         if (currentId) {
             params.append("page", currentId.toString());
@@ -119,6 +153,7 @@ export default function DualPage({ chapterId, array, onClick, currentId, setCurr
 
         navigate({ search: params.toString() })
 
+        // register keyboard events
         const keyDownEvent = (e: KeyboardEvent) => {
             if (e.key === 'ArrowDown') {
                 forward();
@@ -129,65 +164,10 @@ export default function DualPage({ chapterId, array, onClick, currentId, setCurr
 
         document.addEventListener('keydown', keyDownEvent);
 
-
         return () => {
             document.removeEventListener('keydown', keyDownEvent);
         }
     }, [currentId])
 
-    const onLoad = (e: React.UIEvent<HTMLImageElement>) => {
-        if (e.currentTarget === refImg1.current) {
-            if (array[currentId].isWide || (currentId != array.length - 1 && array[currentId + 1].isWide) || currentId === 0 || currentId === array.length - 1 || (array.length > 2 && currentId === array.length - 2))
-                e.currentTarget.removeAttribute("hidden");
-            else if (refImg2.current?.complete) {
-                refImg2.current?.removeAttribute("hidden");
-                e.currentTarget.removeAttribute("hidden");
-            }
-        }
-        else if (refImg1.current?.complete) {
-            refImg1.current?.removeAttribute("hidden");
-            e.currentTarget.removeAttribute("hidden");
-        }
-    }
-
-    if (currentId !== 0) {
-        if ((!array[currentId].isWide && (currentId != array.length - 1 && array[currentId + 1].isWide)) || currentId == array.length - 1 || (array.length > 2 && currentId == array.length - 2)) {
-            return (<Grid container onClick={onImgClick}>
-                <Grid item xs={6}>
-                    <img style={{ height: '100vh', float: 'right' }} ref={refImg1} alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[currentId].i}`} onLoad={onLoad} hidden />
-                </Grid>
-                <Grid item xs={6}>
-                </Grid>
-            </Grid>);
-        } else if (array[currentId].isWide) {
-            return (
-                <Grid container onClick={onImgClick}>
-                    <Grid item xs={12}>
-                        <img style={{ height: '100vh', display: 'block', margin: '0 auto' }} ref={refImg1} alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[currentId].i}`} onLoad={onLoad} hidden />
-                    </Grid>
-                </Grid>);
-        }
-        else {
-            return (
-                <Grid container onClick={onImgClick}>
-                    <Grid item xs={6}>
-                        <img style={{ height: '100vh', float: 'right' }} ref={refImg1} alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[currentId + 1].i}`} onLoad={onLoad} hidden />
-                    </Grid>
-                    <Grid item xs={6}>
-                        <img style={{ height: '100vh', float: 'left' }} ref={refImg2} alt='2' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[currentId].i}`} onLoad={onLoad} hidden />
-                    </Grid>
-                </Grid>);
-        }
-    }
-    else {
-        return (
-            <Grid container onClick={onImgClick}>
-                <Grid item xs={6}>
-                </Grid>
-                <Grid item xs={6}>
-                    <img style={{ height: '100vh', float: 'left' }} ref={refImg1} alt='1' onLoad={onLoad} src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[currentId].i}`} hidden />
-                </Grid>
-            </Grid>
-        )
-    }
+    return DualPageRender(chapterId, currentId, array, onImgClick);
 }

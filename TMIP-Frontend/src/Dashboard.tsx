@@ -28,6 +28,8 @@ import LinearProgress from '@mui/material/LinearProgress';
 import useAxiosPrivate from './hooks/useAxiosPrivate';
 import { AxiosError } from 'axios';
 import DeleteSeriesDialog from './Components/DeleteSeriesDialog';
+import UpdatedInfoDialog, { CodeItemInfo } from './Components/UpdatedInfoDialog';
+import { Chapter } from './ChaptersPage';
 
 function Copyright(props: any) {
   return (
@@ -98,7 +100,7 @@ export const mdTheme = createTheme({
   },
 });
 
-type MyContextType = { invalidate: boolean; setInvalidate: React.Dispatch<React.SetStateAction<boolean>>; isLoading: boolean; setIsLoading: React.Dispatch<React.SetStateAction<boolean>>; rescanChapters: boolean; setRescanChapters: React.Dispatch<React.SetStateAction<boolean>>; setName: React.Dispatch<React.SetStateAction<string>> };
+type MyContextType = { invalidate: boolean; setInvalidate: React.Dispatch<React.SetStateAction<boolean>>; isLoading: boolean; setIsLoading: React.Dispatch<React.SetStateAction<boolean>>; rescanChapters: boolean; setTaskId: React.Dispatch<React.SetStateAction<number>>; setRescanChapters: React.Dispatch<React.SetStateAction<boolean>>; setName: React.Dispatch<React.SetStateAction<string>> };
 
 export function useMyOutletContext() {
   return useOutletContext<MyContextType>();
@@ -111,7 +113,11 @@ function DashboardContent() {
   const [deleteSeriesDialog, setDeleteSeriesDialog] = React.useState(false);
   const [invalidate, setInvalidate] = React.useState(true);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [taskId, setTaskId] = React.useState<number | undefined>();
+  const [taskName, setTaskName] = React.useState<string | undefined>();
+  const [showInfo, setShowInfo] = React.useState(false);
   const [name, setName] = React.useState('');
+  const [addedChapters, setAddedChapters] = React.useState<Chapter[]>([])
   const { pathname } = useLocation();
   const axiosPrivate = useAxiosPrivate();
   let { id } = useParams();
@@ -121,6 +127,42 @@ function DashboardContent() {
   const toggleDrawer = () => {
     setOpen(!open);
   };
+
+  React.useEffect(() => {
+    let intervalFun: number;
+    const checkIfTaskIsFinished = async () => {
+      try {
+        const response = await axiosPrivate.post('/api/v2/series', { id: id ? id : taskId });
+        if (response.status === 200) { // means task is finished
+          console.log('data: ');
+          console.log(response.data);
+          console.log(response.data.chapters);
+          clearInterval(intervalFun);
+          setAddedChapters(response.data.chapters);
+          setTaskName(response.data.name);
+          setShowInfo(true);
+          setIsLoading(false);
+          // setInvalidate(true);
+        }
+        setInvalidate(true);
+      } catch (err: unknown) {
+        if (err instanceof AxiosError) {
+          console.log(err.response);
+          clearInterval(intervalFun);
+        }
+      }
+    }
+
+    if (isLoading && (taskId || id)) {
+      checkIfTaskIsFinished();
+      intervalFun = setInterval(checkIfTaskIsFinished, 2000);
+    }
+
+    return () => {
+      clearInterval(intervalFun);
+    }
+  }, [isLoading])
+
 
   const reScanChapters = async (id: number | undefined) => {
     if (id !== undefined) {
@@ -239,9 +281,16 @@ function DashboardContent() {
           <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
             <Grid container spacing={3} style={{ marginTop: 50 }}>
 
-              <Outlet context={{ invalidate, setInvalidate, setName }} />
+              <Outlet context={{ invalidate, setInvalidate, setName, setIsLoading, setTaskId }} />
               <AddSeries open={addSeriesActive} setOpen={setAddSeriesActive} setInvalidate={setInvalidate} />
               <DeleteSeriesDialog open={deleteSeriesDialog} setOpen={setDeleteSeriesDialog} name={name} id={id ? parseInt(id) : undefined} />
+              <UpdatedInfoDialog open={showInfo} setOpen={setShowInfo} title="Task Completed" message={
+                <CodeItemInfo elevation={3}>
+                  Series "{taskName}" has been added with chapters:<br />
+                  {addedChapters.map((x: Chapter, index: number) =>
+                    <>{`Chapter ${index + 1}: ${x.file_name ?? 'Not added'}`}<br />{`Pages: ${x.pages_count ?? 0}`}{x.error ? <><br /><p style={{ color: 'red' }}>{`Error: ${x.error}`}</p></> : null}<br /><br /></>)}
+                </CodeItemInfo>
+              } />
             </Grid>
             <Copyright sx={{ pt: 4 }} />
           </Container>

@@ -9,6 +9,14 @@ struct series_t
 
 	series_t(
 		int64_t id,
+		std::string name
+		)
+		: m_id{ id }
+		, m_name{ std::move(name) }
+	{}
+
+	series_t(
+		int64_t id,
 		std::string name,
 		std::vector<chapter_t> chapters)
 		: m_id{ id }
@@ -19,10 +27,12 @@ struct series_t
 	series_t(
 		int64_t id,
 		std::string name,
-		uint32_t chapters)
+		uint32_t chapters,
+		std::optional< bool > isProcessing)
 		: m_id{ id }
 		, m_name{ std::move(name) }
 		, m_chaptersCount{ chapters }
+		, m_isProcessing{ isProcessing }
 	{}
 
 	series_t(
@@ -44,6 +54,7 @@ struct series_t
 			& json_dto::optional("updated_at", m_updatedAt, std::nullopt)
 			& json_dto::optional("chapters", m_chapters, std::nullopt)
 			& json_dto::optional("chapters_count", m_chaptersCount, std::nullopt)
+			& json_dto::optional("is_processing", m_isProcessing, std::nullopt)
 		& json_dto::optional("error", m_error, std::nullopt);
 	}
 
@@ -57,6 +68,7 @@ struct series_t
 	std::optional < std::vector<chapter_t> > m_chapters;
 	std::optional < std::string > m_error;
 	std::optional < uint32_t > m_chaptersCount;
+	std::optional < bool > m_isProcessing;
 };
 
 class seriess_handler_t
@@ -97,6 +109,7 @@ public:
 private:
 	std::weak_ptr<sqlite::database> m_db;
 	const std::vector<std::string>& m_allowedOrigins;
+	std::unordered_map<int64_t, std::future<std::vector<chapter_t>>> m_asyncTasks;
 
 	template < typename RESP >
 	static RESP

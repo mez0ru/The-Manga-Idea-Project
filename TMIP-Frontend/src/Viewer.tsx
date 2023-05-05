@@ -45,7 +45,7 @@ export default function Viewer() {
             try {
                 const response = await axiosPrivate.get(`/api/v2/chapter/${id}`);
                 setChapterInfo(response?.data);
-
+                console.log(response?.data);
             } catch (err) {
                 if (err instanceof AxiosError) {
                     if (err.response?.status === 401 || err.response?.status === 403)

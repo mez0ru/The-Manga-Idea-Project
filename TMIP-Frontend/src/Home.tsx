@@ -13,10 +13,11 @@ export interface Series {
     id: number;
     name: string;
     chapters_count: number;
+    is_processing: boolean;
 }
 
 export default function Home() {
-    const { invalidate, setInvalidate } = useMyOutletContext();
+    const { invalidate, setInvalidate, setIsLoading, setTaskId } = useMyOutletContext();
     const navigate = useNavigate();
     const location = useLocation();
     const axiosPrivate = useAxiosPrivate();
@@ -46,6 +47,11 @@ export default function Home() {
                 console.log(response.data);
                 isMounted && setSeries(response.data as Series[]);
                 setInvalidate(false);
+                const procId = series.find(x => x.is_processing);
+                if (procId) {
+                    setTaskId(procId.id);
+                    setIsLoading(true);
+                }
             } catch (err) {
                 if (err instanceof AxiosError) {
                     console.error(err);

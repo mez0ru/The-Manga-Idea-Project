@@ -166,10 +166,10 @@
   <ItemGroup>
     <ClCompile Include="src\Auth\Auth.cpp" />
     <ClCompile Include="src\Auth\KeyGeneration.cpp" />
+    <ClCompile Include="src\Helper\Helper.cpp" />
     <ClCompile Include="src\User\User.cpp" />
     <ClCompile Include="src\Chapter\Chapter.cpp" />
     <ClCompile Include="src\Chapter\ProcessChapters.cpp" />
-    <ClCompile Include="src\JpegXLExif.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\MimeTypes.cpp" />
     <ClCompile Include="src\Series\Series.cpp" />
@@ -177,12 +177,12 @@
   <ItemGroup>
     <ClInclude Include="src\Auth\Auth.h" />
     <ClInclude Include="src\Auth\KeyGeneration.h" />
+    <ClInclude Include="src\Helper\Helper.h" />
     <ClInclude Include="src\User\User.h" />
     <ClInclude Include="src\Auth\UserRoles.h" />
     <ClInclude Include="src\Chapter\Chapter.h" />
     <ClInclude Include="src\Chapter\ProcessChapters.h" />
     <ClInclude Include="src\imageinfo.hpp" />
-    <ClInclude Include="src\JpegXLExif.h" />
     <ClInclude Include="src\MimeTypes.h" />
     <ClInclude Include="src\Series\Series.h" />
     <ClInclude Include="src\Settings.h" />

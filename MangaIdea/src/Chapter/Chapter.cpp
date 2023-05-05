@@ -13,6 +13,7 @@ auto chapters_handler_t::on_page_get(
 	const auto pagenum = restinio::cast_to< std::uint32_t >(params["page_index"]);
 	std::string contentType;
 	char* buff = nullptr;
+	//Magick::Blob* out = new Magick::Blob{};
 
 	auto resp = init_resp(req->create_response(), m_allowedOrigins, req->header().try_get_field("origin") ? *req->header().try_get_field("origin") : "", "application/json");
 	
@@ -29,6 +30,7 @@ auto chapters_handler_t::on_page_get(
 	a = archive_read_new();
 	archive_read_support_filter_all(a);
 	archive_read_support_format_all(a);
+
 	r = archive_read_open_filename(a, (series_path / file_name).generic_string().c_str(), 10240);
 	if (r == ARCHIVE_OK) {
 		for (int i = 0; i <= pagenum; i++)
@@ -40,13 +42,13 @@ auto chapters_handler_t::on_page_get(
 			}
 		if (r == ARCHIVE_OK) {
 			std::string name{ archive_entry_pathname(entry) };
-
+			
 			// From the docs, it seems that "size" is not a reliable way to get
 			// the size of the file, but so far it's the easiest for now.
 			// in the future I will use a more reliable way to do this.
 			size_t size = archive_entry_size(entry);
 			resp.header().set_field("Content-Type", MimeTypes::getType(name.c_str()));
-
+			
 			buff = new char[size];
 			int64_t offset = 0;
 			// Read chunks from the archive
@@ -57,19 +59,31 @@ auto chapters_handler_t::on_page_get(
 			// So we have to check if a number is between 0 and size, with only one comparison.
 			// https://stackoverflow.com/questions/17095324/fastest-way-to-determine-if-an-integer-is-between-two-integers-inclusive-with/17095534#17095534
 
+			// 
+			//Magick::Image img{ Magick::Blob{buff, size} };
+			//img.filterType(MagickCore::LanczosSharpFilter);
+			//img.quality(92);
+			//img.resize(resizeWithAspectRatioFit(img.baseColumns(), img.baseRows(), 1000, 1700));
+			//
+			//img.write(out, "jpeg");
+			
 			if (offset < 1) // Could not read the entry.
 				mark_as_bad_request(resp);
 			else
 				resp.set_body(std::string_view{ buff, size});
+				//resp.set_body(std::string_view{(char*)out->data(), out->length()});
 		}
 	}
 	archive_read_free(a);
 };
 
 	//return response, callback to release any resources left.
-	return resp.done([buff](const asio::error_code&) {
+	return resp.done([buff/*, out*/](const asio::error_code&) {
 		if (buff != nullptr)
+		{
 			delete[] buff;
+			//delete out;
+		}
 		});
 }
 
@@ -91,7 +105,7 @@ auto chapters_handler_t::on_chapter_get(
 				name = file_name.substr(0, file_name.find_last_of("."));
 			};
 		
-		*m_db.lock() << "select i, (width > height) as isWide from page where chapter_id = ?;"
+		*m_db.lock() << "select i, (width > height) as isWide from page where chapter_id = ? ORDER BY page.file_name;"
 			<< chapternum
 			>> [&pages](uint32_t index, bool isWide) {
 			pages.push_back({ index, isWide });

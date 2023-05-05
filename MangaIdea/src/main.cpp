@@ -1,4 +1,4 @@
-#include "restinio/all.hpp"
+﻿#include "restinio/all.hpp"
 //#include <fstream>
 //#include <filesystem>
 //#include <charconv>
@@ -22,6 +22,7 @@
 #include "Chapter/Chapter.h"
 #include "Series/Series.h"
 #include "sqlite3.h"
+#include "fmt/color.h"
 
 //std::regex NAME_REGEX;
 //std::regex EMAIL_REGEX;
@@ -1063,6 +1064,12 @@ int main(int argc, char** argv)
         //	.port(4000)
         //	.address("localhost")
         //	.request_handler(handler));
+
+        std::string copyright = fmt::format(fg(fmt::color::red), 
+            "Copyright (C) The Manga Idea Project 2023. All rights reserved.");
+        std::string author = fmt::format(fg(fmt::color::violet),
+            "Developed and Maintained by github.com/mez0ru.");
+        fmt::print("{}\n{}\nVERSION 0.1.0. Made with Love.\n\n", copyright, author);
 
         using traits_t =
             restinio::traits_t<

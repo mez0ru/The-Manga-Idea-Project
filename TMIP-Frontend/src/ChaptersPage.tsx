@@ -67,7 +67,7 @@ export default function ChaptersPage() {
     return (<div>
         <Grid container spacing={2} px={{ xs: 3, sm: 2, md: 2, lg: 2 }} direction="row">
             {
-                chapters.map((item, i) => (
+                chapters.filter(x => x.pages_count > 0).map((item, i) => (
                     <Grid item key={i}>
                         <ChapterCard chapter={item} />
                     </Grid>))

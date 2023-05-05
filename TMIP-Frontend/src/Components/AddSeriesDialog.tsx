@@ -38,40 +38,41 @@ export default function AddSeries({ open, setOpen, setInvalidate }: Props) {
 
     const [name, setName] = useState('')
     const [folder, setFolder] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading2, setIsLoading2] = useState(false);
     const axiosPrivate = useAxiosPrivate();
     const [errMsg, setErrMsg] = useState('')
     const [showInfo, setShowInfo] = useState(false);
-    const [addedChapters, setAddedChapters] = useState<Chapter[]>([])
+    // const [addedChapters, setAddedChapters] = useState<Chapter[]>([])
 
     const handleClose = () => {
-        setIsLoading(false);
+        setIsLoading2(false);
         setOpen(false);
     };
 
     const handleSubmit = async () => {
-        setIsLoading(true);
+        setIsLoading2(true);
         setErrMsg('');
 
         try {
             const response = await axiosPrivate.post(`/api/v2/series`, { name, folder_path: folder });
-            setAddedChapters(response.data.chapters as Chapter[]);
+            // setAddedChapters(response.data.chapters as Chapter[]);
             handleClose();
             setInvalidate(true);
             setShowInfo(true);
+            setIsLoading2(false);
         } catch (err: unknown) {
             if (err instanceof AxiosError) {
                 console.log(err);
                 setErrMsg(err.response?.data?.error)
             }
-            setIsLoading(false);
+            setIsLoading2(false);
         }
     }
 
 
     return (<>
         <Dialog open={open} onClose={handleClose} TransitionComponent={Transition} keepMounted>
-            {isLoading ? <LinearProgress variant='query' /> : null}
+            {isLoading2 ? <LinearProgress variant='query' /> : null}
             <DialogTitle>Add new Series</DialogTitle>
             <DialogContent>
                 {errMsg ? <Alert severity="error">{errMsg}</Alert> : null}
@@ -108,14 +109,15 @@ export default function AddSeries({ open, setOpen, setInvalidate }: Props) {
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleClose}>Cancel</Button>
-                <Button onClick={handleSubmit} disabled={folder && name && !isLoading ? false : true}>Create</Button>
+                <Button onClick={handleSubmit} disabled={folder && name && !isLoading2 ? false : true}>Create</Button>
             </DialogActions>
         </Dialog>
-        <UpdatedInfoDialog open={showInfo} setOpen={setShowInfo} title="Action Finished" message={
+        <UpdatedInfoDialog open={showInfo} setOpen={setShowInfo} title="Processing content..." message={
             <CodeItemInfo elevation={3}>
-                Series "{name}" has been added with chapters:<br />
+                {/* Series "{name}" has been added with chapters:<br />
                 {addedChapters.map((x: Chapter, index: number) =>
-                    <>{`Chapter ${index + 1}: ${x.file_name ?? 'Not added'}`}<br />{`Pages: ${x.pages_count ?? 0}`}{x.error ? <><br /><p style={{ color: 'red' }}>{`Error: ${x.error}`}</p></> : null}<br /><br /></>)}
+                    <>{`Chapter ${index + 1}: ${x.file_name ?? 'Not added'}`}<br />{`Pages: ${x.pages_count ?? 0}`}{x.error ? <><br /><p style={{ color: 'red' }}>{`Error: ${x.error}`}</p></> : null}<br /><br /></>)} */}
+                Series "{name}" is currently being processed asynchronously, you will be notified when the task is finished...
             </CodeItemInfo>
         } />
     </>

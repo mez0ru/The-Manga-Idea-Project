@@ -14,6 +14,8 @@
 #include <filesystem>
 #include <archive.h>
 #include <archive_entry.h>
+#include "../Helper/Helper.h"
+
 
 struct page_t {
 	page_t() = default;
