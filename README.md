@@ -1,10 +1,9 @@
 # Manga Idea
-A manga server, just like [Komga](https://github.com/gotson/komga/) made in C++. Komga is extremely versatile Comic server.\
-It has a wide range of features, aside from being memory hungry, it's extremely good at what it does.\
-This is just a pet project that I want to do to replace it, since I use it daily to read manga.\
-There are missing features from Komga which are important for me, which made me motivated to work on this project.\
-However, keep in mind that this is totally different project from Komga, I don't plan on making everything work the same as Komga.\
-But I strive to nonetheless. 
+A manga server I'm working on just for fun, just like [Komga](https://github.com/gotson/komga/) made in C++.\
+It's made with the goal to be as feature rich as Komga, while being extremely efficient in memory/cpu usage.\
+I plan on adding features that Komga simply won't support such as simple folders instead of pdf/archives.\
+Future plans could include making an extension for tachiyomi to be used with the server, however it's currently low priority.\
+I made it with the intent to learn C++, so expect low quality code. Pull requests and enhancements are welcome!
 
 # Goals
 1. Achieve good performance like Komga.
