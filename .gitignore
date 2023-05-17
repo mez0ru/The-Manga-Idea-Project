@@ -47,3 +47,4 @@ bin/
 *.ilk
 *.ilk
 bin/intermediates/x64/Debug/Manga Idea.ilk
+*.ilk

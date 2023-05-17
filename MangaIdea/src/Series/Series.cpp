@@ -17,7 +17,7 @@ auto seriess_handler_t::on_series_get(
 		std::string name;
 		*m_db.lock() << "select name, count(chapter.id) from series inner join chapter on chapter.series_id = series.id where series_id = ?;"
 			<< seriesnum
-			>> [&name, &chapters](std::string n, uint32_t count) mutable {
+			>> [&name, &chapters](std::string n, uint32_t count) {
 			name = n;
 			chapters.reserve(count);
 		};

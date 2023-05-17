@@ -125,6 +125,7 @@ int main(int argc, char** argv)
     std::shared_ptr<sqlite::database> db = std::make_unique<sqlite::database>("data.db");
 #endif // _DEBUG    
 
+    *db << "PRAGMA foreign_keys=ON;";
     *db << R"(create table if not exists user (
         id integer primary key autoincrement not null,
         name text,
@@ -188,7 +189,6 @@ int main(int argc, char** argv)
                     UPDATE chapter SET updated_at=CURRENT_TIMESTAMP WHERE id=NEW.id;
                 END;)";
 
-    *db << "PRAGMA foreign_keys=ON;";
     
     //fifo_cache_t<int, std::shared_ptr<bit7z::BitArchiveReader>> chapters_cache(chapters_cache_size);
     //fifo_cache_t<unsigned long long, BitArchiveReader*> chapters_cache(chapters_cache_size);
@@ -1108,7 +1108,7 @@ int main(int argc, char** argv)
             .address("localhost")
             .port(settings.m_port)
             .request_handler(auth_handler(db, settings.m_allowed_origins, settings.m_refresh_token_secret.value(), settings.m_access_token_secret.value(), settings.m_jwt_issuer), std::move(routerHandler))
-            .read_next_http_message_timelimit(10s)
+            .read_next_http_message_timelimit(15s)
             .write_http_response_timelimit(1s)
             .handle_request_timeout(1s));
     }

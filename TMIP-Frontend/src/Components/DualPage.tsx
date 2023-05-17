@@ -39,10 +39,10 @@ const DualPageRender = (chapterId: number, id: number, array: Page[], onImgClick
             return (
                 <Grid container onClick={onImgClick}>
                     <Grid item xs={6}>
-                        <img style={{ height: '100vh', float: 'right' }} loading="lazy" alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id + 1].i}`} />
+                        <img style={{ height: '100vh', float: 'right' }} loading="lazy" alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id].i}`} />
                     </Grid>
                     <Grid item xs={6}>
-                        <img style={{ height: '100vh', float: 'left' }} loading="lazy" alt='2' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id].i}`} />
+                        <img style={{ height: '100vh', float: 'left' }} loading="lazy" alt='2' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id + 1].i}`} />
                     </Grid>
                 </Grid>);
         }

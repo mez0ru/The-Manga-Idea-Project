@@ -46,9 +46,8 @@ static std::array<std::string, 7> supportedArchives = {
     ".tar"
 };
 
-uint32_t AnalyzeImages(sqlite::database& db, const char* filePath, long long chapter_id);
+uint32_t AnalyzeImages(sqlite::database& db, const char* filePath, long long chapter_id, bool is_directory);
 std::vector<chapter_t> AddNewChapters(std::weak_ptr<sqlite::database> db, const std::string& folder_path, int64_t seriesId);
-int ffff(int xxx);
 
 inline std::unique_ptr<std::vector<char>> GenerateCoverFromArchiveImage(const char* buffer, const size_t size) {
     // extract & resize cover

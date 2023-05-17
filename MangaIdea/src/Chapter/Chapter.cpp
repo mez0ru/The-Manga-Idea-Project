@@ -17,74 +17,106 @@ auto chapters_handler_t::on_page_get(
 
 	auto resp = init_resp(req->create_response(), m_allowedOrigins, req->header().try_get_field("origin") ? *req->header().try_get_field("origin") : "", "application/json");
 	
-	*m_db.lock() << "select folder_path, chapter.file_name from series inner join chapter on chapter.series_id = series.id inner join page on page.chapter_id = chapter.id where chapter.id = ? and i = ?;"
-	<< chapternum
-	<< pagenum
-	>> [&, pagenum](std::string f_path, std::string f_name) {
-	std::filesystem::path series_path = f_path;
-	std::filesystem::path file_name = f_name;
-
-	struct archive* a;
-	struct archive_entry* entry = NULL;
-	la_ssize_t r;
-	a = archive_read_new();
-	archive_read_support_filter_all(a);
-	archive_read_support_format_all(a);
-
-	r = archive_read_open_filename(a, (series_path / file_name).generic_string().c_str(), 10240);
-	if (r == ARCHIVE_OK) {
-		for (int i = 0; i <= pagenum; i++)
-			if ((r = archive_read_next_header(a, &entry)) != ARCHIVE_OK)
-			{
-				mark_as_bad_request(resp);
-				resp.done();
-				break;
-			}
-		if (r == ARCHIVE_OK) {
-			std::string name{ archive_entry_pathname(entry) };
-			
-			// From the docs, it seems that "size" is not a reliable way to get
-			// the size of the file, but so far it's the easiest for now.
-			// in the future I will use a more reliable way to do this.
-			size_t size = archive_entry_size(entry);
-			resp.header().set_field("Content-Type", MimeTypes::getType(name.c_str()));
-			
-			buff = new char[size];
-			int64_t offset = 0;
-			// Read chunks from the archive
-			do {
-				offset += archive_read_data(a, buff + offset, 10240);
-			} while ((unsigned)(offset - 0) < (size - 0));
-			// Since this is a signed integer, we want to prevent bugs that could terminate the program,
-			// So we have to check if a number is between 0 and size, with only one comparison.
-			// https://stackoverflow.com/questions/17095324/fastest-way-to-determine-if-an-integer-is-between-two-integers-inclusive-with/17095534#17095534
-
-			// 
-			//Magick::Image img{ Magick::Blob{buff, size} };
-			//img.filterType(MagickCore::LanczosSharpFilter);
-			//img.quality(92);
-			//img.resize(resizeWithAspectRatioFit(img.baseColumns(), img.baseRows(), 1000, 1700));
-			//
-			//img.write(out, "jpeg");
-			
-			if (offset < 1) // Could not read the entry.
-				mark_as_bad_request(resp);
-			else
-				resp.set_body(std::string_view{ buff, size});
-				//resp.set_body(std::string_view{(char*)out->data(), out->length()});
+	std::filesystem::path series_path;
+	std::filesystem::path file_name;
+	bool is_directory = false;
+	*m_db.lock() << "select folder_path, chapter.file_name, page.file_name from series inner join chapter on chapter.series_id = series.id inner join page on page.chapter_id = chapter.id where chapter.id = ? and i = ?;"
+		<< chapternum
+		<< pagenum
+		>> [&, pagenum](std::string f_path, std::string c_name, std::string f_name) {
+		series_path = f_path;
+		if (c_name.c_str()[c_name.length() - 1] == '/') {
+			file_name = c_name.substr(0, c_name.length() - 1) + (char)std::filesystem::path::preferred_separator + f_name;
+			is_directory = true;
 		}
+		else {
+			file_name = c_name;
+		}
+	};
+
+	if (is_directory) {
+		auto sf = restinio::sendfile((series_path / file_name).generic_string());
+		auto modified_at =
+			restinio::make_date_field_value(sf.meta().last_modified_at());
+
+		auto expires_at =
+			restinio::make_date_field_value(
+				std::chrono::system_clock::now() +
+				std::chrono::hours(24 * 7));
+
+
+		resp
+			.append_header(
+				restinio::http_field::last_modified,
+				std::move(modified_at))
+			.append_header(
+				restinio::http_field::expires,
+				std::move(expires_at))
+			.header().set_field("Content-Type", MimeTypes::getType(file_name.string().c_str()));
+		return resp.set_body(std::move(sf)).done();
 	}
-	archive_read_free(a);
-};
+	else
+	{
+		struct archive* a;
+		struct archive_entry* entry = NULL;
+		la_ssize_t r;
+		a = archive_read_new();
+		archive_read_support_filter_all(a);
+		archive_read_support_format_all(a);
+		r = archive_read_open_filename(a, (series_path / file_name).generic_string().c_str(), 10240);
+		if (r == ARCHIVE_OK) {
+			for (int i = 0; i <= pagenum; i++)
+				if ((r = archive_read_next_header(a, &entry)) != ARCHIVE_OK)
+				{
+					mark_as_bad_request(resp);
+					resp.done();
+					break;
+				}
+			if (r == ARCHIVE_OK) {
+				std::string name{ archive_entry_pathname(entry) };
 
-	//return response, callback to release any resources left.
-	return resp.done([buff/*, out*/](const asio::error_code&) {
-		if (buff != nullptr)
-		{
-			delete[] buff;
-			//delete out;
+				// From the docs, it seems that "size" is not a reliable way to get
+				// the size of the file, but so far it's the easiest for now.
+				// in the future I will use a more reliable way to do this.
+				size_t size = archive_entry_size(entry);
+				resp.header().set_field("Content-Type", MimeTypes::getType(name.c_str()));
+
+				buff = new char[size];
+				int64_t offset = 0;
+				// Read chunks from the archive
+				do {
+					offset += archive_read_data(a, buff + offset, 10240);
+				} while ((unsigned)(offset - 0) < (size - 0));
+				// Since this is a signed integer, we want to prevent bugs that could terminate the program,
+				// So we have to check if a number is between 0 and size, with only one comparison.
+				// https://stackoverflow.com/questions/17095324/fastest-way-to-determine-if-an-integer-is-between-two-integers-inclusive-with/17095534#17095534
+
+				// 
+				//Magick::Image img{ Magick::Blob{buff, size} };
+				//img.filterType(MagickCore::LanczosSharpFilter);
+				//img.quality(92);
+				//img.resize(resizeWithAspectRatioFit(img.baseColumns(), img.baseRows(), 1000, 1700));
+				//
+				//img.write(out, "jpeg");
+
+				if (offset < 1) // Could not read the entry.
+					mark_as_bad_request(resp);
+				else
+					resp.set_body(std::string_view{ buff, size });
+				//resp.set_body(std::string_view{(char*)out->data(), out->length()});
+			}
 		}
-		});
+		archive_read_free(a);
+
+		//return response, callback to release any resources left.
+		return resp.done([buff/*, out*/](const asio::error_code&) {
+			if (buff != nullptr)
+			{
+				delete[] buff;
+				//delete out;
+			}
+			});
+	}
 }
 
 auto chapters_handler_t::on_chapter_get(
