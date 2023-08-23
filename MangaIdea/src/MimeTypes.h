@@ -1,6 +1,6 @@
 #ifndef MIMETYPES_H_
 #define MIMETYPES_H_
-#include <string.h>
+#include "pch.h"
 
 class MimeTypes {
   public:

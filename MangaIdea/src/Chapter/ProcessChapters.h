@@ -1,14 +1,12 @@
 #pragma once
+#include "../pch.h"
 #include "Chapter.h"
-#include <Magick++/Functions.h>
-#include <Magick++/Image.h>
-#include <sqlite_modern_cpp.h>
 #ifdef JPEGXL
 #include "../JpegXLExif.h"
 #endif
-#include "../imageinfo.hpp"
+
 //#include "Chapter.h"
-#include "crc32c/crc32c.h"
+
 #include "../Series/Series.h"
 #include "../Helper/Helper.h"
 

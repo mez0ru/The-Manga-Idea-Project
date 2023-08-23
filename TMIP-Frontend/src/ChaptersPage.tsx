@@ -5,6 +5,7 @@ import Grid from '@mui/material/Grid';
 import ChapterCard from './Components/ChapterCard';
 import { useMyOutletContext } from './Dashboard';
 import { AxiosError } from 'axios';
+import { useChaptersStore } from './store/ChaptersStore';
 
 export interface Chapter {
     id: number;
@@ -21,7 +22,12 @@ export default function ChaptersPage() {
 
     const axiosPrivate = useAxiosPrivate();
 
-    const [chapters, setChapters] = useState<Chapter[]>([])
+    // const [chapters, setChapters] = useState<Chapter[]>([])
+    const chapters = useChaptersStore((state) => state.chapters)
+    const setChapters = useChaptersStore((state) => state.setChapters)
+
+    const scrollPosition = useChaptersStore((state) => state.scrollPosition)
+
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -32,36 +38,38 @@ export default function ChaptersPage() {
 
 
     useEffect(() => {
-        let isMounted = true;
-        const controller = new AbortController();
+        if (chapters.length === 0) {
+            let isMounted = true;
+            const controller = new AbortController();
 
-        const getChapters = async () => {
-            try {
-                const response = await axiosPrivate.get(`/api/v2/series/${id}`, {
-                    signal: controller.signal
-                });
-                console.log(response.data);
-                if (isMounted) {
-                    setChapters(response.data.chapters as Chapter[]);
-                    setName(response.data.name);
-                    setChapters(x => x.map(y => Object.assign(y, { seriesId: parseInt(id!!) })));
-                }
-            } catch (err) {
-                if (err instanceof AxiosError) {
-                    console.error(err);
-                    if (err.response?.status === 401 || err.response?.status === 403)
-                        navigate('/login', { state: { from: location }, replace: true });
+            const getChapters = async () => {
+                try {
+                    const response = await axiosPrivate.get(`/api/v2/series/${id}`, {
+                        signal: controller.signal
+                    });
+                    if (isMounted) {
+                        // setChapters( as Chapter[]);
+                        setName(response.data.name);
+                        setChapters(response.data.chapters.map((y: Chapter) => Object.assign(y, { seriesId: parseInt(id!!) })));
+                    }
+                } catch (err) {
+                    if (err instanceof AxiosError) {
+                        console.error(err);
+                        if (err.response?.status === 401 || err.response?.status === 403)
+                            navigate('/login', { state: { from: location }, replace: true });
+                    }
                 }
             }
-        }
 
-        getChapters();
+
+            getChapters();
+
+            return () => {
+                isMounted = false;
+                controller.abort();
+            }
+        }
         setInvalidate(false);
-
-        return () => {
-            isMounted = false;
-            controller.abort();
-        }
     }, [invalidate])
 
     return (<div>
@@ -69,7 +77,7 @@ export default function ChaptersPage() {
             {
                 chapters.filter(x => x.pages_count > 0).map((item, i) => (
                     <Grid item key={i}>
-                        <ChapterCard chapter={item} />
+                        <ChapterCard chapter={item} index={i} />
                     </Grid>))
             }
         </Grid>

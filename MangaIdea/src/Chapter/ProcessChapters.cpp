@@ -1,6 +1,5 @@
 #include "ProcessChapters.h"
 
-
 uint32_t AnalyzeImages(sqlite::database& db, const char* filePath, long long chapter_id, bool is_directory) {
     int added = 0;
     std::string statements{ "" };

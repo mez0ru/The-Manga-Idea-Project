@@ -1,3 +1,4 @@
+#include "../pch.h"
 #include "User.h"
 
 users_handler_t::users_handler_t(std::shared_ptr<sqlite::database> db, const std::vector<std::string>& allowedOrigins, const std::regex& nameReg, const std::regex& emailReg, const std::regex& passwordReg, const std::string& refresh_token)

@@ -1,5 +1,4 @@
-﻿#include "restinio/all.hpp"
-//#include <fstream>
+﻿//#include <fstream>
 //#include <filesystem>
 //#include <charconv>
 //#include <regex>
@@ -10,19 +9,17 @@
 //#include <sstream>
 //#include "cache.hpp"
 //#include "fifo_cache_policy.hpp"
+#include "pch.h"
 #include "MimeTypes.h"
 //#include "cors.h"
 //#include "Middlewares.h"
 //#include "Cover.h"
 //#include <Magick++/Functions.h>
-#include <restinio/router/easy_parser_router.hpp>
 #include "User/User.h"
 #include "Auth/Auth.h"
 #include "Settings.h"
 #include "Chapter/Chapter.h"
 #include "Series/Series.h"
-#include "sqlite3.h"
-#include "fmt/color.h"
 
 //std::regex NAME_REGEX;
 //std::regex EMAIL_REGEX;

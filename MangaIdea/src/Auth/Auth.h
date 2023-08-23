@@ -1,23 +1,5 @@
 #pragma once
 
-#include <restinio/all.hpp>
-
-#include <restinio/sync_chain/fixed_size.hpp>
-
-#include <restinio/helpers/http_field_parsers/basic_auth.hpp>
-#include <restinio/helpers/http_field_parsers/try_parse_field.hpp>
-
-#include <json_dto/pub.hpp>
-
-#include "jwt-cpp/jwt.h"
-#include "jwt-cpp/traits/boost-json/traits.h"
-
-#include <sqlite_modern_cpp.h>
-#include <fmt/core.h>
-
-#include "KeyGeneration.h"
-#include "../User/User.h"
-
 class auth_handler_t
 {
 public:

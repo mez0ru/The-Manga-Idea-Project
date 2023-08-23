@@ -1,12 +1,6 @@
 #pragma once
-
-#include <restinio/router/express.hpp>
-#include <restinio/cast_to.hpp>
-#include <json_dto/pub.hpp>
 #include "../Auth/KeyGeneration.h"
-#include <sqlite_modern_cpp.h>
-#include <algorithm>
-#include <regex>
+
 #include "../Auth/UserRoles.h"
 
 struct user_t

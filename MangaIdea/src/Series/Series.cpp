@@ -1,3 +1,4 @@
+#include "../pch.h"
 #include "Series.h"
 
 seriess_handler_t::seriess_handler_t(std::shared_ptr<sqlite::database> db, const std::vector<std::string>& allowedOrigins)

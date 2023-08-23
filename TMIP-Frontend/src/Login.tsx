@@ -55,6 +55,7 @@ export default function Login() {
             navigate(from, { replace: true });
         } catch (err) {
             if (err instanceof AxiosError) {
+                console.log(err)
                 if (!err?.response) {
                     setErrMsg('No Server Response');
                 } else if (err.response?.status === 400) {

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Page } from '../Viewer';
 import { createPortal } from 'react-dom';
 import './DualPage.css';
+import { ReactJSXElement } from '@emotion/react/types/jsx-namespace';
 
 // const BASE_URL = 'http://localhost:4000'
 
@@ -22,7 +23,7 @@ const DualPageRender = (chapterId: number, id: number, array: Page[], onImgClick
         if ((!array[id].isWide && (id != array.length - 1 && array[id + 1].isWide)) || id == array.length - 1 || (array.length > 2 && id == array.length - 2)) {
             return (<Grid container onClick={onImgClick}>
                 <Grid item xs={6}>
-                    <img style={{ height: '100vh', float: 'right' }} loading="lazy" alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id].i}`} />
+                    <img style={{ height: '100vh', float: 'right' }} alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id].i}`} />
                 </Grid>
                 <Grid item xs={6}>
                 </Grid>
@@ -31,7 +32,7 @@ const DualPageRender = (chapterId: number, id: number, array: Page[], onImgClick
             return (
                 <Grid container onClick={onImgClick}>
                     <Grid item xs={12}>
-                        <img style={{ height: '100vh', display: 'block', margin: '0 auto' }} loading="lazy" alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id].i}`} />
+                        <img style={{ height: '100vh', display: 'block', margin: '0 auto' }} alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id].i}`} />
                     </Grid>
                 </Grid>);
         }
@@ -39,10 +40,10 @@ const DualPageRender = (chapterId: number, id: number, array: Page[], onImgClick
             return (
                 <Grid container onClick={onImgClick}>
                     <Grid item xs={6}>
-                        <img style={{ height: '100vh', float: 'right' }} loading="lazy" alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id].i}`} />
+                        <img style={{ height: '100vh', float: 'right' }} alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id].i}`} />
                     </Grid>
                     <Grid item xs={6}>
-                        <img style={{ height: '100vh', float: 'left' }} loading="lazy" alt='2' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id + 1].i}`} />
+                        <img style={{ height: '100vh', float: 'left' }} alt='2' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id + 1].i}`} />
                     </Grid>
                 </Grid>);
         }
@@ -53,7 +54,7 @@ const DualPageRender = (chapterId: number, id: number, array: Page[], onImgClick
                 <Grid item xs={6}>
                 </Grid>
                 <Grid item xs={6}>
-                    <img style={{ height: '100vh', float: 'left' }} loading="lazy" alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id].i}`} />
+                    <img style={{ height: '100vh', float: 'left' }} alt='1' src={`${BASE_URL}/api/v2/chapter/${chapterId}/page/${array[id].i}`} />
                 </Grid>
             </Grid>
         )

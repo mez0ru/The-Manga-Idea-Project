@@ -27,6 +27,7 @@ export default function SeriesCard({ series, onContextMenu }: Props) {
                         onLoad={() => setDone(true)}
                         onError={() => setDone(true)}
                         src={`${BASE_URL}/api/v2/series/cover/${series.id}`}
+                        style={{ height: '210px', width: '150px' }}
                     />
                     <CardContent>
                         <Typography gutterBottom variant="body1" sx={{
@@ -35,10 +36,11 @@ export default function SeriesCard({ series, onContextMenu }: Props) {
                             display: "-webkit-box",
                             WebkitLineClamp: "2",
                             WebkitBoxOrient: "vertical",
+                            minHeight: '4.5rem',
+                            marginBottom: '0.5rem',
                         }}>
                             {series.name}
                         </Typography>
-                        <br />
                         <Typography gutterBottom variant="body2">
                             {series.chapters_count} Books
                         </Typography>

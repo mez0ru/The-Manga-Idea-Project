@@ -153,6 +153,8 @@
       <AdditionalIncludeDirectories>C:\Users\lazyhorse\source\repos\bit7z\include;%(AdditionalIncludeDirectories);C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\include</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -164,12 +166,25 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\Auth\Auth.cpp" />
-    <ClCompile Include="src\Auth\KeyGeneration.cpp" />
-    <ClCompile Include="src\Helper\Helper.cpp" />
+    <ClCompile Include="src\Auth\Auth.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="src\Auth\KeyGeneration.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="src\Helper\Helper.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="src\pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="src\User\User.cpp" />
-    <ClCompile Include="src\Chapter\Chapter.cpp" />
-    <ClCompile Include="src\Chapter\ProcessChapters.cpp" />
+    <ClCompile Include="src\Chapter\Chapter.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="src\Chapter\ProcessChapters.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\MimeTypes.cpp" />
     <ClCompile Include="src\Series\Series.cpp" />
@@ -178,6 +193,7 @@
     <ClInclude Include="src\Auth\Auth.h" />
     <ClInclude Include="src\Auth\KeyGeneration.h" />
     <ClInclude Include="src\Helper\Helper.h" />
+    <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\User\User.h" />
     <ClInclude Include="src\Auth\UserRoles.h" />
     <ClInclude Include="src\Chapter\Chapter.h" />

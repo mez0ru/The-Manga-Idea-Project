@@ -1,5 +1,6 @@
 // Github: https://github.com/lasselukkari/MimeTypes
 
+#include "pch.h"
 #include "MimeTypes.h"
 
 const char* MimeTypes::getType(const char * extension)  {

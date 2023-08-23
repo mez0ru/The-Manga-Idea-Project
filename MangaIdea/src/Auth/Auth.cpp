@@ -1,4 +1,7 @@
+#include "../pch.h"
 #include "Auth.h"
+#include "KeyGeneration.h"
+#include "../User/User.h"
 
 auth_handler_t::auth_handler_t(std::shared_ptr<sqlite::database> db, const std::vector<std::string>& allowedOrigins, const std::string& refresh_token, const std::string& access_token, const std::string& issuer)
 	: m_db{ db }
@@ -133,6 +136,8 @@ auto auth_handler_t::login(
 					                        .sign(jwt::algorithm::hs256{ m_access_token });
 
 				return init_resp(req->create_response(restinio::status_no_content()))
+					.append_header("Access-Control-Allow-Origin", std::find(std::begin(m_allowedOrigins), std::end(m_allowedOrigins), req->header().try_get_field("origin") ? *req->header().try_get_field("origin") : "") != std::end(m_allowedOrigins) ? req->header().try_get_field("origin") ? *req->header().try_get_field("origin") : "" : m_allowedOrigins.at(0))
+					.append_header("Access-Control-Allow-Credentials", "true")
 					.append_header(restinio::http_field::set_cookie, fmt::format("jwt={}; Max-Age={}; HttpOnly", reg_refresh_token, 7 * 24 * 60 * 60 * 1000))
 					.append_header(restinio::http_field::set_cookie, fmt::format("session={}; Max-Age={}; HttpOnly", reg_access_token, 36000 * 1000))
 					.done();
@@ -145,6 +150,8 @@ auto auth_handler_t::login(
 
 	// Otherwise reply with unauthorized.
 	return init_resp(req->create_response(restinio::status_unauthorized()))
+		.append_header("Access-Control-Allow-Origin", std::find(std::begin(m_allowedOrigins), std::end(m_allowedOrigins), req->header().try_get_field("origin") ? *req->header().try_get_field("origin") : "") != std::end(m_allowedOrigins) ? req->header().try_get_field("origin") ? *req->header().try_get_field("origin") : "" : m_allowedOrigins.at(0))
+		.append_header("Access-Control-Allow-Credentials", "true")
 		.set_body("Unauthorized access forbidden")
 		.done();
 }
@@ -158,7 +165,7 @@ auto auth_handler_t::on_cors(
 		// CORS
 		.append_header("Access-Control-Allow-Origin", std::find(std::begin(m_allowedOrigins), std::end(m_allowedOrigins), origin) != std::end(m_allowedOrigins) ? origin.data() : m_allowedOrigins.at(0))
 		.append_header("Access-Control-Allow-Credentials", "true")
-		.append_header("Access-Control-Allow-Headers", "X-PINGOTHER, Content-Type, Origin, X-Requested-With, Content-Type, Accept, Authorization")
+		.append_header("Access-Control-Allow-Headers", "X-PINGOTHER, Origin, X-Requested-With, Content-Type, Accept, Authorization")
 		.append_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		.append_header("Access-Control-Max-Age", "86400")
 		.done();
@@ -241,8 +248,8 @@ std::function<const restinio::request_handling_status_t& (const restinio::reques
 	// Routes >>>
 	router->http_get("/api/v2/user",
 		by(&auth_handler_t::verify_identity));
-	router->http_get("/api/v2/user/:id",
-		by(&auth_handler_t::verify_identity));
+	//router->http_get("/api/v2/user/:id",
+	//	by(&auth_handler_t::verify_identity));
 	router->http_get("/api/v2/auth/refresh",
 		by(&auth_handler_t::refresh_identity));
 	router->http_post("/api/v2/auth/login",

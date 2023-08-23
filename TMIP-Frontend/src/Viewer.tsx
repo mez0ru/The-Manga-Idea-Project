@@ -13,6 +13,11 @@ import Slide from '@mui/material/Slide';
 import Slider from '@mui/material/Slider';
 import { mdTheme } from './Dashboard';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import { useChaptersStore } from './store/ChaptersStore';
+import Tooltip from '@mui/material/Tooltip';
+
 
 export interface Page {
     i: number;
@@ -34,18 +39,26 @@ export default function Viewer() {
     const [hideBars, setHideBars] = useState(true);
 
     const [searchParams] = useSearchParams();
-
     const [currentId, setCurrentId] = useState(parseInt(searchParams.get("page") ?? '0'));
+
+    const [chapterId, setChapterId] = useState(parseInt(id ?? '0'));
+
+    const setSelectedChapter = useChaptersStore((state) => state.setSelectedChapter);
+    const nextChapter = useChaptersStore((state) => state.getNextChapter(chapterId))
+    const prevChapter = useChaptersStore((state) => state.getPrevChapter(chapterId))
 
     const axiosPrivate = useAxiosPrivate();
 
     useEffect(() => {
         document.body.style.backgroundColor = 'black';
+    }, [])
+
+    useEffect(() => {
         const getImageIds = async () => {
             try {
                 const response = await axiosPrivate.get(`/api/v2/chapter/${id}`);
                 setChapterInfo(response?.data);
-                console.log(response?.data);
+                setCurrentId(0)
             } catch (err) {
                 if (err instanceof AxiosError) {
                     if (err.response?.status === 401 || err.response?.status === 403)
@@ -66,11 +79,14 @@ export default function Viewer() {
 
         getImageIds();
 
+        setSelectedChapter(chapterId)
+        console.log(`current chapter: ${chapterId}`)
+
         return () => {
             setChapterInfo(undefined);
             document.body.style.removeProperty('backgroundColor');
         }
-    }, []);
+    }, [chapterId]);
 
     const handleChange = (event: Event, newValue: number | number[]) => {
         if (typeof newValue === 'number') {
@@ -97,7 +113,20 @@ export default function Viewer() {
                 <Slide appear={false} direction="up" in={hideBars}>
                     <AppBar position="fixed" sx={{ top: 'auto', bottom: 0 }}>
                         <Toolbar variant="dense">
+                            <Tooltip title="Previous Chapter">
+                                <span>
+                                    <IconButton edge="start" color="inherit" aria-label="menu" sx={{ mr: 1 }} onClick={() => {
+                                        if (prevChapter) {
+                                            setChapterId(prevChapter.id)
+                                            navigate(`/series/${seriesId}/chapter/${prevChapter.id}`)
+                                        }
 
+                                    }
+                                    } disabled={prevChapter ? false : true}>
+                                        <ArrowBackIosNewIcon />
+                                    </IconButton>
+                                </span>
+                            </Tooltip>
                             <Typography variant="body1" gutterBottom mr={2} mt={1}>
                                 0
                             </Typography>
@@ -105,6 +134,18 @@ export default function Viewer() {
                             <Typography variant="body1" gutterBottom ml={2} mt={1}>
                                 {chapterInfo.pages.length - 1}
                             </Typography>
+                            <Tooltip title="Next Chapter">
+                                <span>
+                                    <IconButton edge="end" color="inherit" aria-label="menu" sx={{ ml: 1 }} onClick={() => {
+                                        if (nextChapter) {
+                                            setChapterId(nextChapter.id)
+                                            navigate(`/series/${seriesId}/chapter/${nextChapter.id}`)
+                                        }
+                                    }} disabled={nextChapter ? false : true}>
+                                        <ArrowForwardIosIcon />
+                                    </IconButton>
+                                </span>
+                            </Tooltip>
                         </Toolbar>
                     </AppBar>
                 </Slide>

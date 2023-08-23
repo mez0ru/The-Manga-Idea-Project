@@ -8,6 +8,7 @@ import { AxiosError } from 'axios';
 
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import { useChaptersStore } from './store/ChaptersStore';
 
 export interface Series {
     id: number;
@@ -35,7 +36,9 @@ export default function Home() {
         setAnchorEl(event.currentTarget);
     };
 
+    const reset = useChaptersStore((state) => state.reset)
     useEffect(() => {
+        reset()
         let isMounted = true;
         const controller = new AbortController();
 

@@ -1,19 +1,9 @@
 #pragma once
 
 //#include <restinio/router/easy_parser_router.hpp>
-#include <restinio/router/express.hpp>
-#include <restinio/cast_to.hpp>
-#include <json_dto/pub.hpp>
-#include <sqlite_modern_cpp.h>
-#include "jwt-cpp/jwt.h"
-#include "jwt-cpp/traits/boost-json/traits.h"
-#include "boost/json/parser.hpp"
-#include <Magick++/Functions.h>
-#include <Magick++/Image.h>
+#include "../pch.h"
 #include "../MimeTypes.h"
-#include <filesystem>
-#include <archive.h>
-#include <archive_entry.h>
+
 #include "../Helper/Helper.h"
 
 
