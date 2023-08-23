@@ -13,8 +13,12 @@ I made it with the intent to learn C++, so expect low quality code. Pull request
 
 
 # Status
-The project is in active development, still incomplete.
-Around 30% is done? But it's not even usable.
+The project is abandoned, still incomplete, but usable (kind of).\
+Login, Registeration are working but user validation is not.\
+Frontend is half baked.\
+I got totally burned out with C++. It's not fun, and definitely got a whole lot harder the more I change anything in the backend.\
+To be honest, golang seems quite close to C++ while also extremely simple and better in every way.\
+I plan on remaking this project in golang in the near future.
 
 # Dependencies
 use VCPKG to download these dependencies:
